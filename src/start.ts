@@ -107,11 +107,15 @@ async function run(once: boolean): Promise<void> {
 
   console.log(`theme    : ${boot.theme.name} (${boot.theme.id})`)
 
-  const launch = await launchTelemost(appConfig)
+  const launch = await launchTelemost(appConfig, {
+    onRestart: () =>
+      console.log("Telemost : already running without debugging — restarting it so the theme can attach"),
+  })
+
   console.log(
     launch.alreadyRunning
       ? `Telemost : already running with debugging on port ${appConfig.debugPort}`
-      : `Telemost : starting (pid ${launch.pid ?? "unknown"})`,
+      : `Telemost : ${launch.restarted ? "restarted" : "starting"} (pid ${launch.pid ?? "unknown"})`,
   )
 
   const target = await waitForPageTarget(

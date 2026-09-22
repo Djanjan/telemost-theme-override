@@ -94,11 +94,14 @@ async function commandApply(overrides: ReturnType<typeof readOverrides>, once: b
   const css = buildCss({ theme, mapping })
   console.log(`theme         : ${theme.name} (${theme.id})`)
 
-  const launch = await launchTelemost(config)
+  const launch = await launchTelemost(config, {
+    onRestart: () => console.log("Telemost      : running without debugging — restarting to attach"),
+  })
+
   console.log(
     launch.alreadyRunning
       ? `Telemost      : already running with debugging on port ${config.debugPort}`
-      : `Telemost      : started (pid ${launch.pid ?? "unknown"})`,
+      : `Telemost      : ${launch.restarted ? "restarted" : "started"} (pid ${launch.pid ?? "unknown"})`,
   )
 
   const target = await waitForPageTarget(config.debugHost, config.debugPort, isTelemostPage, config.launchTimeoutMs)

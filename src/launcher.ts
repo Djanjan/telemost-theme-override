@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process"
 import { existsSync } from "node:fs"
 import type { AppConfig } from "./schema"
+import { findRunning, stopTelemost } from "./process"
 
 export class LauncherError extends Error {
   constructor(message: string) {
@@ -33,6 +34,8 @@ export function buildEnv(config: AppConfig, base: NodeJS.ProcessEnv = process.en
 export interface LaunchResult {
   readonly pid: number | undefined
   readonly alreadyRunning: boolean
+  /** True when a debugger-less instance had to be closed first. */
+  readonly restarted: boolean
 }
 
 export async function isDebuggerUp(host: string, port: number): Promise<boolean> {
@@ -46,13 +49,33 @@ export async function isDebuggerUp(host: string, port: number): Promise<boolean>
   }
 }
 
-export async function launchTelemost(config: AppConfig): Promise<LaunchResult> {
+export interface LaunchOptions {
+  /** Invoked before an existing debugger-less instance is stopped. */
+  readonly onRestart?: (running: number) => void
+}
+
+export async function launchTelemost(config: AppConfig, options: LaunchOptions = {}): Promise<LaunchResult> {
+  // An instance that already exposes the DevTools port is one we can use as-is.
   if (await isDebuggerUp(config.debugHost, config.debugPort)) {
-    return { pid: undefined, alreadyRunning: true }
+    return { pid: undefined, alreadyRunning: true, restarted: false }
   }
 
   if (!existsSync(config.telemostExe)) {
     throw new LauncherError(`Telemost executable not found: ${config.telemostExe}`)
+  }
+
+  /*
+   * Telemost is single-instance. Launching a second copy just forwards the
+   * arguments to the running one and exits, and QTWEBENGINE_REMOTE_DEBUGGING is
+   * only read at process start — so an instance launched from the ordinary
+   * shortcut can never be attached to. Restarting it is the only way in.
+   */
+  const running = await findRunning(config.telemostExe)
+  let restarted = false
+  if (running.length > 0) {
+    options.onRestart?.(running.length)
+    await stopTelemost(config.telemostExe)
+    restarted = true
   }
 
   const child = spawn(config.telemostExe, [], {
@@ -62,5 +85,5 @@ export async function launchTelemost(config: AppConfig): Promise<LaunchResult> {
   })
   child.unref()
 
-  return { pid: child.pid, alreadyRunning: false }
+  return { pid: child.pid, alreadyRunning: false, restarted }
 }
