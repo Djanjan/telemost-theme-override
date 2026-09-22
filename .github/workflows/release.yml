@@ -1,0 +1,120 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  # Lets you rehearse the whole pipeline without publishing anything.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to stamp into the executable (e.g. v1.2.3)"
+        required: false
+        default: "v0.0.0-dev"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    # Windows-only by necessity: the build embeds icon resources through
+    # BeginUpdateResource/UpdateResource, which is Win32 API with no portable
+    # equivalent. Cross-compiling from Linux would ship an unbranded binary.
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            version="${GITHUB_REF_NAME}"
+          else
+            version="${{ inputs.version }}"
+          fi
+          echo "value=${version}" >> "$GITHUB_OUTPUT"
+          echo "Building ${version}"
+
+      - name: Build executable
+        env:
+          BUILD_VERSION: ${{ steps.version.outputs.value }}
+        run: bun run build
+
+      # The build already asserts the icon group; this re-checks the artifact
+      # itself so a broken binary cannot be published.
+      - name: Verify artifact
+        shell: pwsh
+        run: |
+          $exe = "dist/telemost-start.exe"
+          if (-not (Test-Path $exe)) { throw "build produced no executable" }
+
+          $info = (Get-Item $exe).VersionInfo
+          $size = [math]::Round((Get-Item $exe).Length / 1MB, 1)
+
+          Write-Host "FileVersion : $($info.FileVersion)"
+          Write-Host "ProductName : $($info.ProductName)"
+          Write-Host "Size        : $size MB"
+
+          if ([string]::IsNullOrWhiteSpace($info.FileVersion)) {
+            throw "version metadata missing — icon embedding likely wiped it"
+          }
+          if ($size -lt 50) {
+            throw "executable is suspiciously small ($size MB)"
+          }
+
+          & "./scripts/verify-icon.ps1" -ExePath (Resolve-Path $exe)
+
+      - name: Smoke test
+        shell: pwsh
+        run: |
+          # Telemost is not installed on the runner, so a normal launch cannot
+          # work. --where exercises config resolution and exits cleanly, which
+          # is enough to catch a binary that cannot start at all.
+          $output = & "./dist/telemost-start.exe" --where 2>&1 | Out-String
+          Write-Host $output
+          if ($LASTEXITCODE -ne 0) { throw "--where exited with $LASTEXITCODE" }
+          if ($output -notmatch "TelemostThemeOverride") { throw "unexpected --where output" }
+
+      - name: Checksum
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash dist/telemost-start.exe -Algorithm SHA256).Hash.ToLower()
+          "$hash  telemost-start.exe" | Out-File -FilePath dist/telemost-start.exe.sha256 -Encoding ascii
+          Write-Host $hash
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: telemost-start
+          path: |
+            dist/telemost-start.exe
+            dist/telemost-start.exe.sha256
+          retention-days: 14
+
+      - name: Publish release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/telemost-start.exe
+            dist/telemost-start.exe.sha256
+          generate_release_notes: true
+          body: |
+            Скачайте `telemost-start.exe` и запускайте его вместо обычного ярлыка Телемоста.
+
+            Настройки появятся в `%LOCALAPPDATA%\TelemostThemeOverride\` после первого запуска —
+            как поменять цвет, описано в [README](https://github.com/${{ github.repository }}#свой-цвет).
+
+            SHA-256 в файле `telemost-start.exe.sha256`.

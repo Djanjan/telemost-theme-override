@@ -18,15 +18,36 @@ import { mkdir, stat } from "node:fs/promises"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
+import packageJson from "../package.json" with { type: "json" }
+
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 const EXE = resolve(ROOT, "dist/telemost-start.exe")
 const ICON = resolve(ROOT, "assets/telemost-themed.ico")
+
+/**
+ * Windows wants a four-part numeric version. Releases are tagged `v1.2.3`, so
+ * derive it from the tag when CI provides one and fall back to package.json for
+ * local builds. Anything unparseable becomes 0.0.0.0 rather than failing the
+ * build — a wrong version string is not worth losing an artifact over.
+ */
+function resolveVersion(): string {
+  const raw = process.env.BUILD_VERSION ?? packageJson.version ?? "0.0.0"
+  const parts = raw
+    .replace(/^v/i, "")
+    .split(/[.\-+]/)
+    .map((part) => Number.parseInt(part, 10))
+    .filter((part) => Number.isInteger(part) && part >= 0)
+    .slice(0, 4)
+
+  while (parts.length < 4) parts.push(0)
+  return parts.join(".")
+}
 
 const METADATA = {
   title: "Telemost Theme Override",
   description: "Launches Yandex Telemost with a custom theme",
   publisher: "telemost-theme-override",
-  version: "1.0.0.0",
+  version: resolveVersion(),
 } as const
 
 function run(command: string, args: readonly string[], label: string): Promise<void> {
@@ -62,7 +83,7 @@ async function main(): Promise<void> {
   console.log("[2/5] recoloring icon")
   await run("bun", ["run", "scripts/recolor-icon.ts"], "recolor-icon")
 
-  console.log("[3/5] compiling executable")
+  console.log(`[3/5] compiling executable (version ${METADATA.version})`)
   await mkdir(resolve(ROOT, "dist"), { recursive: true })
   await run(
     "bun",

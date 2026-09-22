@@ -40,9 +40,54 @@ public static extern bool UpdateResource(IntPtr hUpdate, IntPtr lpType, IntPtr l
 
 [DllImport("kernel32.dll", SetLastError = true)]
 public static extern bool EndUpdateResource(IntPtr hUpdate, bool fDiscard);
+
+[DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+public static extern IntPtr LoadLibraryEx(string lpFileName, IntPtr hFile, uint dwFlags);
+
+[DllImport("kernel32.dll", SetLastError = true)]
+public static extern bool FreeLibrary(IntPtr hModule);
+
+[DllImport("kernel32.dll", SetLastError = true)]
+public static extern IntPtr FindResource(IntPtr hModule, IntPtr lpName, IntPtr lpType);
+
+[DllImport("kernel32.dll", SetLastError = true)]
+public static extern IntPtr LoadResource(IntPtr hModule, IntPtr hResInfo);
+
+[DllImport("kernel32.dll")]
+public static extern IntPtr LockResource(IntPtr hResData);
+
+[DllImport("kernel32.dll", SetLastError = true)]
+public static extern uint SizeofResource(IntPtr hModule, IntPtr hResInfo);
 '@
 
 $api = Add-Type -MemberDefinition $signature -Name 'ResUpdate' -Namespace 'IconEmbed' -PassThru
+
+# Deleting every existing resource also removes the VERSIONINFO block Bun
+# wrote, which is what Explorer shows under Properties > Details. Read it back
+# first so it can be restored alongside the new icon.
+$RT_VERSION = [IntPtr]16
+$versionBlob = $null
+
+$LOAD_LIBRARY_AS_IMAGE_RESOURCE = 0x00000020
+$LOAD_LIBRARY_AS_DATAFILE = 0x00000002
+$module = $api::LoadLibraryEx($ExePath, [IntPtr]::Zero,
+                              $LOAD_LIBRARY_AS_IMAGE_RESOURCE -bor $LOAD_LIBRARY_AS_DATAFILE)
+
+if ($module -ne [IntPtr]::Zero) {
+    try {
+        $res = $api::FindResource($module, [IntPtr]1, $RT_VERSION)
+        if ($res -ne [IntPtr]::Zero) {
+            $size = $api::SizeofResource($module, $res)
+            $data = $api::LockResource($api::LoadResource($module, $res))
+            if ($data -ne [IntPtr]::Zero -and $size -gt 0) {
+                $versionBlob = New-Object byte[] $size
+                [Runtime.InteropServices.Marshal]::Copy($data, $versionBlob, 0, [int]$size)
+            }
+        }
+    } finally {
+        [void]$api::FreeLibrary($module)
+    }
+}
 
 $RT_ICON = [IntPtr]3
 $RT_GROUP_ICON = [IntPtr]14
@@ -103,6 +148,16 @@ try {
     if (-not $ok) {
         throw "UpdateResource(RT_GROUP_ICON) failed (error $([Runtime.InteropServices.Marshal]::GetLastWin32Error()))"
     }
+
+    # Put the version metadata back; it was wiped along with everything else.
+    if ($null -ne $versionBlob) {
+        # VERSIONINFO is language-tagged; 1033 (en-US) is what Bun emits and what
+        # Explorer falls back to. Writing it as neutral leaves the fields blank.
+        $ok = $api::UpdateResource($handle, $RT_VERSION, [IntPtr]1, 1033, $versionBlob, [uint32]$versionBlob.Length)
+        if (-not $ok) {
+            throw "UpdateResource(RT_VERSION) failed (error $([Runtime.InteropServices.Marshal]::GetLastWin32Error()))"
+        }
+    }
 } catch {
     [void]$api::EndUpdateResource($handle, $true)  # discard
     throw
@@ -112,4 +167,5 @@ if (-not $api::EndUpdateResource($handle, $false)) {
     throw "EndUpdateResource failed (error $([Runtime.InteropServices.Marshal]::GetLastWin32Error()))"
 }
 
-Write-Output "embedded $imageCount icon image(s) as a single group into $(Split-Path $ExePath -Leaf)"
+$versionNote = if ($null -ne $versionBlob) { ", version metadata preserved" } else { ", no version metadata found" }
+Write-Output "embedded $imageCount icon image(s) as a single group into $(Split-Path $ExePath -Leaf)$versionNote"
