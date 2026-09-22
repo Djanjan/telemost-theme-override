@@ -14,7 +14,7 @@
  */
 
 import { spawn } from "node:child_process"
-import { mkdir, stat } from "node:fs/promises"
+import { mkdir, readFile, stat } from "node:fs/promises"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
@@ -76,7 +76,30 @@ function runCapture(command: string, args: readonly string[]): Promise<string> {
   })
 }
 
+/**
+ * Warns when the local Bun differs from the pinned one.
+ *
+ * Bun's runtime is embedded in the compiled binary, so the same source built
+ * with a different Bun yields a different artifact (82.1 MiB on 1.4.2 vs
+ * 112.7 MiB on 1.3.13). Local builds are still useful, they just will not be
+ * byte-identical to a release — worth knowing before comparing checksums.
+ */
+async function checkBunVersion(): Promise<void> {
+  let pinned: string
+  try {
+    pinned = (await readFile(resolve(ROOT, ".bun-version"), "utf8")).trim()
+  } catch {
+    return
+  }
+
+  const actual = Bun.version
+  if (pinned && actual !== pinned) {
+    console.log(`      note: local Bun ${actual} differs from pinned ${pinned}; releases use the pinned one`)
+  }
+}
+
 async function main(): Promise<void> {
+  await checkBunVersion()
   console.log("[1/5] syncing defaults")
   await run("bun", ["run", "scripts/sync-defaults.ts"], "sync-defaults")
 
