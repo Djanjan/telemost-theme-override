@@ -1,115 +1,131 @@
-# telemost-theme-override
+# Телемост без зелёного
 
-Repaints Yandex Telemost with a custom color scheme. **Telemost's own files are
-never modified** — the stylesheet is injected at runtime.
+Меняет фирменный зелёный цвет Яндекс Телемоста на любой другой.
 
-Built and verified against Telemost `3.0.1.9940` (Qt WebEngine 6.8.3 / Chrome 122).
+Файлы Телемоста **не трогаются** — тема накладывается поверх при запуске.
+Обновление Телемоста ничего не ломает.
 
-## Usage
+## Как пользоваться
 
-```
-telemost-start.exe          launch Telemost, apply the theme, keep it applied
-telemost-start.exe --once   apply once and exit (Telemost keeps running)
-telemost-start.exe --where  print config file locations
-telemost-start.exe --help
-```
+Запустите `telemost-start.exe` вместо обычного ярлыка. Он сам откроет Телемост
+и применит тему.
 
-On first run it creates:
+Если Телемост уже открыт — закроет и откроет заново (иначе подключиться к нему
+нельзя). Консольное окно спрячется само, когда всё применится.
+
+Удобно: закрепите `telemost-start.exe` на панели задач вместо ярлыка Телемоста.
+
+## Свой цвет
+
+При первом запуске создаются два файла:
 
 ```
 %LOCALAPPDATA%\TelemostThemeOverride\
-  theme.json    colors — edit this
-  config.json   path to Telemost, debug port, console behaviour
+  theme.json     цвета
+  config.json    путь к Телемосту, порт, поведение консоли
 ```
 
-### `config.json`
+Открыть папку: `Win+R` → вставить `%LOCALAPPDATA%\TelemostThemeOverride` → Enter.
 
-| Key | Default | Meaning |
+### Самый простой способ
+
+В `theme.json` удалите оба блока `accentScale` и впишите свой цвет
+в `interactive` — в обеих секциях, `light` и `dark`:
+
+```json
+{
+  "dark": {
+    "seeds": {
+      "interactive": "#8b5cf6"
+    }
+  }
+}
+```
+
+Остальные оттенки (наведение, нажатие, фон сообщений) построятся сами.
+Проверенные варианты:
+
+| Цвет | Значение |
+| --- | --- |
+| фиолетовый | `#8b5cf6` |
+| бирюзовый | `#06b6d4` |
+| янтарный | `#f59e0b` |
+| малиновый | `#e11d48` |
+| синий (по умолчанию) | `#034cff` |
+
+Сохраните файл и запустите `telemost-start.exe` заново.
+
+### Точная настройка
+
+Если нужен полный контроль — оставьте `accentScale`: это 12 оттенков от самого
+светлого к самому тёмному. Он важнее, чем `interactive`, и используется, если
+присутствует.
+
+Так сделано по умолчанию, потому что насыщенные цвета при автоматическом
+построении шкалы выходят за пределы sRGB и выглядят кислотно.
+
+### Если что-то сломалось
+
+Удалите испорченный файл и запустите `.exe` — он создастся заново со стандартными
+значениями. При ошибке в файле программа скажет, в какой именно строке проблема,
+и ничего не применит.
+
+## Настройки `config.json`
+
+| Параметр | По умолчанию | Что делает |
 | --- | --- | --- |
-| `telemostExe` | auto-detected | Full path to `YandexTelemost.exe` |
-| `debugPort` | `9333` | CDP port, bound to `127.0.0.1` only |
-| `watch` | `true` | Stay attached and re-apply on navigation |
-| `launchTimeoutSeconds` | `45` | How long to wait for the Telemost window |
-| `hideConsole` | `"auto"` | `auto` \| `always` \| `never` — see below |
+| `telemostExe` | находится сам | Путь к `YandexTelemost.exe` |
+| `debugPort` | `9333` | Технический порт, только `127.0.0.1` |
+| `watch` | `true` | Держать тему при переходах внутри приложения |
+| `launchTimeoutSeconds` | `45` | Сколько ждать окно Телемоста |
+| `hideConsole` | `"auto"` | `auto` — спрятать после успеха, `always` — всегда, `never` — не прятать |
 
-`hideConsole` controls this launcher's own console window:
+При `auto` окно остаётся открытым, если есть предупреждение — чтобы его можно
+было прочитать.
 
-- **`auto`** — hide it once the theme is applied, but keep it open if a warning
-  needs reading
-- **`always`** — hide it regardless
-- **`never`** — always keep it visible
+## Команды
 
-This is done at runtime rather than with `bun build --windows-hide-console`,
-which strips the console at link time and would make startup errors invisible.
+```
+telemost-start.exe            запустить и держать тему
+telemost-start.exe --once     применить один раз и выйти
+telemost-start.exe --where    показать, где лежат настройки
+telemost-start.exe --help     справка
+```
 
-A console belonging to an existing terminal is **never** hidden: the launcher
-checks `GetConsoleProcessList` and only acts when it is the sole process
-attached, i.e. when Windows created the window for a double-click.
+## Почему так сделано
 
-Both are created once and **never overwritten**, so your edits survive tool
-upgrades. Delete a file to regenerate it with defaults.
+Интерфейс Телемоста — веб-приложение, зашитое внутрь подписанного `.exe`
+размером 156 МБ. Файла со стилями на диске просто нет, а правка самой программы
+слетела бы при первом автообновлении.
 
-## Changing colors
+Поэтому тема подставляется в момент работы, через штатный механизм Qt.
+Подмена идёт на уровне базовой палитры, а не отдельных кнопок: имена элементов
+меняются от версии к версии, палитра — нет. После применения программа
+перепроверяет результат в живом окне и прямо сообщает, если Телемост
+что-то переименовал.
 
-`theme.json` holds two things per light/dark variant:
+Подробности: [`docs/brand-tokens.md`](docs/brand-tokens.md).
 
-- `seeds` — named base colors
-- `accentScale` — an explicit 12-step ramp, light to dark, that drives the brand
-  color (buttons, outgoing message bubbles, focus rings, the FAB)
-
-`accentScale` wins when present. It exists because generating a whole ramp from
-one saturated color clips outside sRGB: cobalt `#034cff` has chroma 0.269 versus
-the stock green's 0.194, and naive scaling drifts its hue up to 15° toward cyan.
-A hand-authored scale avoids that. Drop `accentScale` and the brand is derived
-from `seeds.interactive` instead, with gamut mapping applied.
-
-To port a theme from shuvcode, copy the two `seeds` objects (minus `diffAdd` and
-`diffDelete`) and optionally a color ramp from `packages/ui/src/styles/colors.css`.
-
-## How it works
-
-Telemost's UI is a web app served over a custom `ychat://` scheme; `app.js` and
-`app.css` are embedded in the 156 MB executable, not on disk, so there is no file
-to patch.
-
-Instead the launcher sets `QTWEBENGINE_REMOTE_DEBUGGING` — a stock Qt facility
-present in the shipped `Qt6WebEngineCore.dll` — **in the child process only**.
-Nothing is written to your environment, no Telemost file is touched, and the
-executable signature stays intact. The theme is then injected over the Chrome
-DevTools Protocol via `Page.addScriptToEvaluateOnNewDocument`, which survives
-reloads and in-app navigation.
-
-The port is pinned to `127.0.0.1` in the schema itself. Binding it to a routable
-interface would hand out remote control of a logged-in session.
-
-### Why it survives Telemost updates
-
-All of Telemost's green resolves through a single primitive ramp,
-`--orb-color-ya-telemost-*`, declared once on `:root`. Rewriting those 24
-declarations repaints all 17 semantic brand tokens that consume them.
-
-Targeting primitives rather than component selectors is deliberate: class names
-and semantic tokens churn between releases, the brand color ramp does not.
-
-If Telemost ever does rename them, the tool reports it loudly rather than
-degrading silently — after injecting it reads the tokens back from the live
-document and exits with code 2 if any are missing.
-
-See [`docs/brand-tokens.md`](docs/brand-tokens.md) for the full token contract.
-
-## Development
+## Для разработчиков
 
 ```
 bun install
-bun run start          run from source
-bun run build-css      print the generated stylesheet
-bun run doctor         inspect a running Telemost
+bun run launch        запуск из исходников
+bun run build-css     показать генерируемый CSS
+bun run doctor        диагностика работающего Телемоста
 bun run typecheck
-bun run build          compile dist/telemost-start.exe
+bun run build         собрать dist/telemost-start.exe
 ```
 
-`config/*.json` are the source of truth; `bun run build` bakes them into the
-binary via `scripts/sync-defaults.ts`, so the two copies cannot drift.
+Источник правды — `config/*.json`; `bun run build` вшивает их в бинарник
+и перекрашивает иконку под текущую тему.
 
-`assets/telemost.ico` was extracted from `YandexTelemost.exe` (9 sizes,
-16×16 to 256×256) and is used as the launcher's icon.
+---
+
+<sub>
+Яндекс Телемост тема, Telemost dark theme, кастомная тема Телемост,
+убрать зелёный цвет Телемост, telemost custom theme, изменить цвет Телемоста,
+Yandex Telemost theme changer, Телемост тёмная тема, Telemost UI customization,
+перекрасить Телемост, Telemost accent color, Яндекс Мессенджер тема,
+Qt WebEngine CSS injection, telemost-theme-override
+</sub>
