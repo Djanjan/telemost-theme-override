@@ -1,0 +1,26 @@
+{
+  "name": "telemost-theme-override",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Runtime shuvcode theming for Yandex Telemost via Qt WebEngine DevTools. Never modifies Telemost files.",
+  "scripts": {
+    "launch": "bun run src/start.ts",
+    "apply": "bun run src/main.ts apply",
+    "build-css": "bun run src/main.ts build-css",
+    "doctor": "bun run src/main.ts doctor",
+    "sync-defaults": "bun run scripts/sync-defaults.ts",
+    "recolor-icon": "bun run scripts/recolor-icon.ts",
+    "build": "bun run scripts/build.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "zod": "^4.1.5"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.21",
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}

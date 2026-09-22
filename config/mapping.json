@@ -1,0 +1,34 @@
+{
+  "description": "Repaints Orb brand primitives from the theme's accent scale. Verified against Telemost 3.0.1.9940 / QtWebEngine 6.8.3.",
+  "ramps": [
+    {
+      "family": "ya-telemost",
+      "seed": "interactive",
+      "alphaSource": 700,
+      "emitLightTrio": true
+    },
+    {
+      "family": "ya-messenger",
+      "seed": "interactive",
+      "alphaSource": 700,
+      "emitLightTrio": false
+    }
+  ],
+  "darkOverrides": {},
+  "lightOverrides": {},
+  "canaryTokens": [
+    "--orb-surface-brand",
+    "--orb-surface-brand-hovered",
+    "--orb-surface-brand-pressed",
+    "--orb-surface-brand-light",
+    "--orb-surface-brand-light-hovered",
+    "--orb-surface-brand-light-pressed",
+    "--orb-text-brand",
+    "--orb-text-brand-static",
+    "--orb-line-brand",
+    "--orb-misc-line-focus",
+    "--orb-shadow-brand",
+    "--component-desktop-merge-notice-brand-bg",
+    "--component-desktop-merge-notice-brand-color"
+  ]
+}

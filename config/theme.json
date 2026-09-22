@@ -1,0 +1,54 @@
+{
+  "name": "OC-1",
+  "id": "oc-1",
+  "light": {
+    "seeds": {
+      "neutral": "#8e8b8b",
+      "primary": "#dcde8d",
+      "success": "#12c905",
+      "warning": "#ffdc17",
+      "error": "#fc533a",
+      "info": "#a753ae",
+      "interactive": "#034cff"
+    },
+    "accentScale": [
+      "#fcfdff",
+      "#f5faff",
+      "#eaf2ff",
+      "#daeaff",
+      "#c8e0ff",
+      "#b4d2ff",
+      "#98bfff",
+      "#73a4ff",
+      "#034cff",
+      "#0443de",
+      "#1251ec",
+      "#0f2b6c"
+    ]
+  },
+  "dark": {
+    "seeds": {
+      "neutral": "#716c6b",
+      "primary": "#fab283",
+      "success": "#12c905",
+      "warning": "#fcd53a",
+      "error": "#fc533a",
+      "info": "#edb2f1",
+      "interactive": "#034cff"
+    },
+    "accentScale": [
+      "#091120",
+      "#0d172b",
+      "#0c2255",
+      "#0c2a74",
+      "#113489",
+      "#18409b",
+      "#204cb1",
+      "#2558d0",
+      "#034cff",
+      "#0038ee",
+      "#89b5ff",
+      "#cde2ff"
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.idea/
+.serena/
+*.log
+.DS_Store
+out.css
+*-test.json
+*-test.css
+*-probe.ts
+*-probe.mjs
+*-audit.ts
