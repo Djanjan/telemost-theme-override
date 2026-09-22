@@ -28,28 +28,45 @@ Get-FileHash telemost-start.exe -Algorithm SHA256
 
 Удобно: закрепите `telemost-start.exe` на панели задач вместо ярлыка Телемоста.
 
-## Свой цвет
+---
 
-При первом запуске создаются два файла:
+## Полный алгоритм замены и настройки темы
+
+### Где находятся файлы конфигурации
+
+При первом запуске создаётся персональная папка настроек:
 
 ```
 %LOCALAPPDATA%\TelemostThemeOverride\
-  theme.json     цвета
+  theme.json     цвета и оформление интерфейса
   config.json    путь к Телемосту, порт, поведение консоли
 ```
 
-Открыть папку: `Win+R` → вставить `%LOCALAPPDATA%\TelemostThemeOverride` → Enter.
+> **Важно:** Файл `%LOCALAPPDATA%\TelemostThemeOverride\theme.json` создаётся один раз и **не перезаписывается автоматически**, чтобы ваши правки не сбрасывались.
 
-### Самый простой способ
+---
 
-В `theme.json` удалите оба блока `accentScale` и впишите свой цвет
-в `interactive` — в обеих секциях, `light` и `dark`. Файл станет таким
-(остальные seed-цвета не трогайте — оставьте те, что создались сами):
+### Пошаговая инструкция
+
+#### Шаг 1. Откройте файл темы
+
+1. Нажмите сочетание клавиш `Win + R`.
+2. Вставьте путь: `%LOCALAPPDATA%\TelemostThemeOverride` и нажмите **Enter**.
+3. Откройте файл `theme.json` в любом текстовом редакторе (VS Code, Блокнот и т.д.).
+
+*(Если вы работаете с исходным кодом репозитория, редактируйте `config/theme.json`)*.
+
+---
+
+#### Шаг 2. Выберите способ настройки
+
+##### Способ А. Быстрая смена основного цвета (только интерактивные элементы)
+Удалите массив `accentScale` и укажите желаемый HEX-цвет в `seeds.interactive`:
 
 ```json
 {
-  "name": "OC-1",
-  "id": "oc-1",
+  "name": "My Custom Theme",
+  "id": "my-custom-theme",
   "light": {
     "seeds": {
       "neutral": "#8e8b8b",
@@ -58,7 +75,7 @@ Get-FileHash telemost-start.exe -Algorithm SHA256
       "warning": "#ffdc17",
       "error": "#fc533a",
       "info": "#a753ae",
-      "interactive": "#8b5cf6"
+      "interactive": "#ec729c"
     }
   },
   "dark": {
@@ -69,90 +86,103 @@ Get-FileHash telemost-start.exe -Algorithm SHA256
       "warning": "#fcd53a",
       "error": "#fc533a",
       "info": "#edb2f1",
-      "interactive": "#8b5cf6"
+      "interactive": "#f497be"
     }
   }
 }
 ```
+*Все промежуточные оттенки (наведение, нажатие, фон сообщений) генератор построит автоматически.*
 
-Остальные оттенки (наведение, нажатие, фон сообщений) построятся сами.
-Проверенные варианты:
+##### Способ Б. Полный контроль палитры бренда (12 оттенков)
+Задайте шкалу `accentScale` (ровно 12 оттенков от самого светлого к самому тёмному).
+Она имеет приоритет над автоматической генерацией из `seeds.interactive`.
 
-| Цвет | Значение |
-| --- | --- |
-| фиолетовый | `#8b5cf6` |
-| бирюзовый | `#06b6d4` |
-| янтарный | `#f59e0b` |
-| малиновый | `#e11d48` |
-| синий (по умолчанию) | `#034cff` |
-
-Сохраните файл и запустите `telemost-start.exe` заново.
-
-### Точная настройка
-
-Если нужен полный контроль — оставьте `accentScale`: это 12 оттенков от самого
-светлого к самому тёмному. Он важнее, чем `interactive`, и используется, если
-присутствует.
-
-Так сделано по умолчанию, потому что насыщенные цвета при автоматическом
-построении шкалы выходят за пределы sRGB и выглядят кислотно.
-
-### Цвет точечно: весь интерфейс
-
-`accentScale` красит бренд целиком. Если нужно задать конкретный цвет
-конкретного места — фон страницы, текст, иконки, рамки, кнопки, выделение,
-тени, градиенты — допишите в `theme.json` блок `semantic` внутри `light`
-и `dark`:
+##### Способ В. Полная перекраска всего интерфейса (`semantic`)
+Чтобы изменить цвет **контейнеров, карточек, фона страницы, боковой панели, текста, кнопок, обводок и теней**, используйте блок `semantic` внутри `light` и `dark`:
 
 ```json
 {
-  "name": "OC-1",
-  "id": "oc-1",
+  "name": "Pastel Blossom",
+  "id": "pastel-blossom",
   "light": {
-    "seeds": {
-      "neutral": "#8e8b8b",
-      "primary": "#dcde8d",
-      "success": "#12c905",
-      "warning": "#ffdc17",
-      "error": "#fc533a",
-      "info": "#a753ae",
-      "interactive": "#034cff"
-    },
+    "seeds": { ... },
     "semantic": {
-      "page": { "background": "#f5f6fa" },
-      "text": { "link": "#2f6bff" }
+      "page": {
+        "background": "#fff5f8",
+        "conversation": "#fff5f8"
+      },
+      "surface": {
+        "generic": "#ffffff",
+        "genericHovered": "#fef0f5"
+      },
+      "modal": {
+        "card": "#ffffff",
+        "popup": "#ffffff"
+      },
+      "control": {
+        "buttonBrand": "#ec729c",
+        "buttonBrandText": "#ffffff"
+      },
+      "text": {
+        "primary": "#3f1b2b",
+        "secondary": "#7e445b"
+      },
+      "line": {
+        "generic": "#f3d5e2"
+      }
     }
   },
   "dark": {
-    "seeds": {
-      "neutral": "#716c6b",
-      "primary": "#fab283",
-      "success": "#12c905",
-      "warning": "#fcd53a",
-      "error": "#fc533a",
-      "info": "#edb2f1",
-      "interactive": "#034cff"
-    },
+    "seeds": { ... },
     "semantic": {
-      "page": { "background": "#14161b" }
+      "page": {
+        "background": "#20121a",
+        "conversation": "#20121a"
+      },
+      "surface": {
+        "generic": "#36202e",
+        "genericHovered": "#432739"
+      },
+      "modal": {
+        "card": "#36202e",
+        "popup": "#36202e"
+      },
+      "control": {
+        "buttonBrand": "#d9659b",
+        "buttonBrandText": "#ffffff"
+      },
+      "text": {
+        "primary": "#fff2f7",
+        "secondary": "#e2b4c8"
+      },
+      "line": {
+        "generic": "#542a42"
+      }
     }
   }
 }
 ```
 
-Каждый слот задаётся отдельно для светлой и тёмной темы. Что не задано —
-остаётся как в Телемосте. Всего 124 слота: страницы, поверхности, текст,
-иконки, рамки, контролы, состояния, статусы, тени, градиенты.
+Всего доступно **124 семантических слота** в 15 категориях (`page`, `surface`, `elevation`, `modal`, `overlay`, `line`, `focus`, `text`, `icon`, `control`, `state`, `selection`, `status`, `shadow`, `gradient`). Полная документация слотов: [docs/semantic-colors.md](docs/semantic-colors.md).
 
-Весь список слотов с форматами значений, порядком применения, примерами и
-границами (картинки, видео и содержимое iframe слоты не перекрашивают) —
-в [docs/semantic-colors.md](docs/semantic-colors.md).
+---
 
-### Если что-то сломалось
+#### Шаг 3. Примените тему
 
-Удалите испорченный файл и запустите `.exe` — он создастся заново со стандартными
-значениями. При ошибке программа покажет путь к неверному параметру
-и ничего не применит.
+- **Для пользователей `.exe`**: сохраните файл `theme.json` и просто запустите `telemost-start.exe`.
+- **Для разработчиков**: выполните команду `bun run launch` или `bun run apply`.
+
+Если Телемост уже был запущен, лаунчер перезапустит его и применит новые цвета.
+
+---
+
+### Сброс темы к стандартным значениям
+
+Если вы хотите вернуть исходную тему по умолчанию:
+1. Удалите файл `%LOCALAPPDATA%\TelemostThemeOverride\theme.json`.
+2. Запустите `telemost-start.exe` — файл создастся заново со стандартными значениями.
+
+---
 
 ## Настройки `config.json`
 
@@ -194,15 +224,17 @@ telemost-start.exe --help     справка
 
 ```
 bun install
-bun run launch        запуск из исходников
+bun run launch        запуск из исходников (читает %LOCALAPPDATA%)
+bun run apply         быстрое применение (читает config/theme.json)
 bun run build-css     показать генерируемый CSS
 bun run doctor        диагностика работающего Телемоста
-bun run typecheck
-bun run build         собрать dist/telemost-start.exe
+bun run typecheck     проверка типов TypeScript
+bun run test          запуск набора unit-тестов
+bun run build         собрать dist/telemost-start.exe (вшивает config/ в бинарник)
 ```
 
-Источник правды — `config/*.json`; `bun run build` вшивает их в бинарник
-и перекрашивает иконку под текущую тему.
+Источник правды по умолчанию — `config/*.json`.
+При сборке (`bun run build`) скрипт автоматически выполняет `sync-defaults`, перекрашивает иконку `assets/telemost-themed.ico` и компилирует автономный бинарный файл `dist/telemost-start.exe`.
 
 ---
 
