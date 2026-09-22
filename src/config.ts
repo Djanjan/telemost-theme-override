@@ -8,6 +8,7 @@ import {
   slotKindAllowsProperty,
   type SemanticSlotEntry,
 } from "./theme/semantic-slots"
+import { findTelemost } from "./paths"
 import {
   appConfigSchema,
   desktopThemeSchema,
@@ -222,7 +223,7 @@ export interface CliOverrides {
 
 export function buildAppConfig(root: string, overrides: CliOverrides): AppConfig {
   const parsed = appConfigSchema.safeParse({
-    telemostExe: overrides.exe ?? DEFAULT_TELEMOST_EXE,
+    telemostExe: overrides.exe ?? findTelemost() ?? DEFAULT_TELEMOST_EXE,
     debugHost: "127.0.0.1",
     debugPort: overrides.port ?? 9333,
     themeFile: resolve(root, overrides.theme ?? "config/theme.json"),
