@@ -101,7 +101,8 @@ export async function waitForAppStyles(session: CdpSession, mapping: MappingConf
  * token, the canary shows up in `missing` and the CLI reports it loudly.
  */
 export async function verify(session: CdpSession, mapping: MappingConfig): Promise<VerificationReport> {
-  const tokens = JSON.stringify(mapping.canaryTokens)
+  const allTokens = [...new Set([...mapping.canaryTokens, ...mapping.semanticCanaries])].sort()
+  const tokens = JSON.stringify(allTokens)
   const id = JSON.stringify(STYLE_ELEMENT_ID)
 
   const expression = `(() => {

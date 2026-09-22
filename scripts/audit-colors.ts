@@ -27,8 +27,8 @@ import { mkdir, writeFile } from "node:fs/promises"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..")
-const ASSET_RELATIVE = "research_notes/Полная перекраска интерфейса Телемоста/evidence/telemost_ui.css"
+export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..")
+export const ASSET_RELATIVE = "research_notes/Полная перекраска интерфейса Телемоста/evidence/telemost_ui.css"
 const DEFAULT_OUT_RELATIVE = "reports/telemost_ui_color_inventory.json"
 const MAX_VALUE_CHARS = 400
 
@@ -84,8 +84,13 @@ const NATIVE_CONTROL_PROPS = new Set(["accent-color", "caret-color", "color-sche
 
 const SHADOW_PROPS = new Set(["box-shadow", "text-shadow"])
 
-/** Any color-ish var() name; used where a var() *may* be a color (shorthands, custom props). */
-const COLORISH_NAME = /color|surface|line|shadow|scrim|bg|background|fill|stroke|border|overlay|accent|text|brand|divider|skeleton|placeholder/i
+/**
+ * Any color-ish var() name; used where a var() *may* be a color (shorthands, custom props).
+ * `line` must not match `line-height`: the Orb typography ramp stores line heights under
+ * `--orb-*-line-height` names (var()-valued, color-family-looking) and those are not colors.
+ * Real line colors (`--orb-line-*`) keep matching via `line(?!-height)` and their literals.
+ */
+const COLORISH_NAME = /color|surface|line(?!-height)|shadow|scrim|bg|background|fill|stroke|border|overlay|accent|text|brand|divider|skeleton|placeholder/i
 
 /** Pseudo-elements/pseudo-classes that restyle native controls. */
 const NATIVE_PSEUDO = /::(selection|placeholder|-webkit-(scrollbar|resizer|input-placeholder)|-moz-(selection|placeholder))|:-webkit-autofill/i
@@ -394,7 +399,10 @@ function scanColorsInValue(value: string): ColorToken[] {
         if (name === "var") {
           const close = consumeBalanced(value, after)
           const body = value.slice(i, close)
-          const ref = /var\(\s*(--[a-zA-Z0-9-]+)/.exec(body)
+          // Custom-property names are CSS idents: any code point >= U+0080 is an
+          // ident char, so the capture must not be ASCII-only. Names end where
+          // the fallback separator (whitespace/comma) or the call closes.
+          const ref = /var\(\s*(--[^\s,)]+)/.exec(body)
           const varName = ref ? ref[1] : body
           tokens.push({ type: "var", raw: body, normalized: varName.toLowerCase(), name: varName })
           i = close
@@ -464,6 +472,55 @@ function isColorBearing(property: string, tokens: readonly ColorToken[]): boolea
   return hasLiteral
 }
 
+/**
+ * True when `:root` appears at the top level of the compound (not nested in a
+ * functional pseudo-class argument or attribute selector) and is not part of a
+ * longer ident-like pseudo-class name.
+ */
+function hasTopLevelRoot(subject: string): boolean {
+  let depth = 0
+  for (let i = 0; i < subject.length; i += 1) {
+    const ch = subject[i]
+    if (ch === "(" || ch === "[") {
+      depth += 1
+      continue
+    }
+    if (ch === ")" || ch === "]") {
+      depth -= 1
+      continue
+    }
+    if (depth === 0 && subject.startsWith(":root", i)) {
+      const after = subject[i + 5]
+      if (after === undefined || !/[a-zA-Z0-9_-]/.test(after)) return true
+    }
+  }
+  return false
+}
+
+/**
+ * True when every comma-part's *subject* compound (the last compound, after the
+ * final top-level combinator) selects the root element itself — e.g. `:root`,
+ * `:root.brand_telemost`, `.theme_dark:root`, `.Orb-Brand_x :root`. Selectors
+ * where `html`/`:root` appear only as an ancestor (`html[dir=rtl] .yamb-x`)
+ * declare the property on a component element and are NOT root-scoped.
+ * Functional arguments in these preludes are space-free, so splitting the part
+ * on combinators is safe; deeper selector grammars degrade to "not root",
+ * which prescribes the always-winning targeted rule.
+ */
+function selectorTargetsRootElement(selector: string): boolean {
+  const parts = selector
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0)
+  if (parts.length === 0) return false
+  return parts.every((part) => {
+    const compounds = part.split(/[\s>+~]+/)
+    const subject = compounds[compounds.length - 1]
+    if (subject === undefined || subject.length === 0) return false
+    return hasTopLevelRoot(subject)
+  })
+}
+
 function classify(
   property: string,
   value: string,
@@ -476,7 +533,21 @@ function classify(
 
   if (isCustom) {
     const orbRamp = /^--orb-color-[a-z0-9-]+-(alpha-\d+|light-\d+|\d+)$/.test(property)
-    return { kind: "token-definition", override: orbRamp ? "orb-ramp" : "token-redefinition" }
+    // token-redefinition is only prescribed when it can actually win: buildCss()
+    // emits light/darkOverrides on :root / .theme_dark scopes (including
+    // .brand_telemost compounds) inside the injected sheet appended last, so it
+    // beats an author definition whose subject is the root element on cascade
+    // ties. A definition on any other element beats inherited root values
+    // outright — the winning move there is a targeted rule on the same
+    // selector, which appended-last wins at equal specificity.
+    return {
+      kind: "token-definition",
+      override: orbRamp
+        ? "orb-ramp"
+        : selectorTargetsRootElement(selector)
+          ? "token-redefinition"
+          : "targeted-rule",
+    }
   }
   if (SVG_PAINT_PROPS.has(property)) return { kind: "svg-paint", override: hasVar ? "upstream-token" : "targeted-rule" }
   if (NATIVE_CONTROL_PROPS.has(property) || NATIVE_PSEUDO.test(selector)) {
@@ -506,7 +577,7 @@ function classifySources(tokens: readonly ColorToken[]): string[] {
   return sources
 }
 
-function parseStylesheet(css: string): ScanResult {
+export function parseStylesheet(css: string): ScanResult {
   const occurrences: Occurrence[] = []
   let skippedFragments = 0
   let truncatedValues = 0
@@ -528,9 +599,10 @@ function parseStylesheet(css: string): ScanResult {
   let line = 1
   let column = 1
 
+  // Index-based so columns count UTF-16 code units exactly like the main loop does.
   const track = (text: string): void => {
-    for (const ch of text) {
-      if (ch === "\n") {
+    for (let k = 0; k < text.length; k += 1) {
+      if (text[k] === "\n") {
         line += 1
         column = 1
       } else {
@@ -609,7 +681,11 @@ function parseStylesheet(css: string): ScanResult {
       continue
     }
 
-    if (ch === "(" && /url\(\s*$/i.test(buffer)) {
+    // The buffer ends with the url() *name* right as the "(" is examined (the
+    // paren itself is not in the buffer yet). The preceding char must be a
+    // non-ident char so only the genuine `url` function token is masked —
+    // data URIs legally carry `;` and `{`/`}` inside the token body.
+    if (ch === "(" && /(?:^|[^a-zA-Z0-9_\\-])url$/i.test(buffer)) {
       const end = consumeUrlBody(css, i + 1)
       buffer += css.slice(i, end)
       track(css.slice(i, end))
@@ -647,7 +723,14 @@ function parseStylesheet(css: string): ScanResult {
     }
 
     buffer += ch
-    column += 1
+    // Ordinary newlines are content too: advance the line counter so
+    // occurrences outside strings/comments/url bodies report real positions.
+    if (ch === "\n") {
+      line += 1
+      column = 1
+    } else {
+      column += 1
+    }
     i += 1
   }
   flushDeclaration()
@@ -699,7 +782,7 @@ function aggregateColors(occurrences: readonly Occurrence[]): ColorAggregate[] {
 // Main
 // ---------------------------------------------------------------------------
 
-function parseArgs(argv: readonly string[]): string {
+export function parseArgs(argv: readonly string[]): string {
   let out = DEFAULT_OUT_RELATIVE
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
@@ -712,7 +795,13 @@ function parseArgs(argv: readonly string[]): string {
       throw new Error(`unknown argument: ${arg}`)
     }
   }
-  return resolve(ROOT, out)
+  const resolved = resolve(ROOT, out)
+  // The pinned asset is READ-ONLY evidence (SHA-256-identified in the report);
+  // refuse any --out spelling that would resolve onto it.
+  if (resolved === resolve(ROOT, ASSET_RELATIVE)) {
+    throw new Error(`--out must not overwrite the pinned read-only input asset: ${ASSET_RELATIVE}`)
+  }
+  return resolved
 }
 
 async function main(): Promise<void> {
@@ -724,6 +813,11 @@ async function main(): Promise<void> {
   const css = new TextDecoder().decode(assetBytes)
 
   const { occurrences, skippedFragments, truncatedValues } = parseStylesheet(css)
+
+  // Factual, derived count of url() occurrences in the stylesheet text — the
+  // note must not misstate the asset it describes (same case-sensitive literal
+  // count a reader can verify with `css.match(/url\(/g)`).
+  const urlReferenceCount = (css.match(/url\(/g) ?? []).length
 
   const byKind = sortedCounts(countBy(occurrences, (o) => o.kind))
   const bySource = sortedCounts(countBy(occurrences, (o) => o.sources.join("+")))
@@ -767,7 +861,10 @@ async function main(): Promise<void> {
     },
     unverified: [
       { source: "inline-style", note: "Element style attributes are not part of this stylesheet; live-call DOM is unverified." },
-      { source: "svg-dom", note: "SVG drawn in the DOM (attributes/presentation) is not visible in CSS; static file has one masked url() fill." },
+      {
+        source: "svg-dom",
+        note: `SVG drawn in the DOM (attributes/presentation) is not visible in CSS; the stylesheet text contains ${urlReferenceCount} url() occurrence${urlReferenceCount === 1 ? "" : "s"}, masked from the token inventory and not verified.`,
+      },
       { source: "image", note: "Raster and data-URI image pixels are out of scope for static analysis." },
       { source: "video", note: "Video frames are pixel sources; not analyzable here." },
       { source: "canvas", note: "Canvas painting is a pixel source; not analyzable here." },
@@ -828,7 +925,11 @@ async function main(): Promise<void> {
   )
 }
 
-main().catch((error: unknown) => {
-  process.stderr.write(`audit-colors failed: ${error instanceof Error ? error.message : String(error)}\n`)
-  process.exitCode = 1
-})
+// Test seam: importing this module must not execute the audit; only the CLI
+// entry point (`bun run scripts/audit-colors.ts`) does.
+if (import.meta.main) {
+  main().catch((error: unknown) => {
+    process.stderr.write(`audit-colors failed: ${error instanceof Error ? error.message : String(error)}\n`)
+    process.exitCode = 1
+  })
+}

@@ -40,7 +40,10 @@ function isTelemostPage(target: CdpTarget): boolean {
 
 async function commandBuildCss(overrides: ReturnType<typeof readOverrides>, out: string | undefined): Promise<void> {
   const config = buildAppConfig(ROOT, overrides)
-  const [theme, mapping] = await Promise.all([loadTheme(config.themeFile), loadMapping(config.mappingFile)])
+  // The parsed theme cross-validates rule bindings (plan §10 per-mode value
+  // presence), so it must load before the mapping.
+  const theme = await loadTheme(config.themeFile)
+  const mapping = await loadMapping(config.mappingFile, theme)
   const css = buildCss({ theme, mapping })
 
   if (out) {
@@ -71,7 +74,9 @@ async function commandDoctor(overrides: ReturnType<typeof readOverrides>): Promi
 
   const session = await CdpSession.connect(target.webSocketDebuggerUrl ?? "")
   try {
-    const mapping = await loadMapping(config.mappingFile)
+    // Bindings are cross-validated against the theme, so load it first.
+    const theme = await loadTheme(config.themeFile)
+    const mapping = await loadMapping(config.mappingFile, theme)
     const report = await verify(session, mapping)
     console.log(`root classes  : ${report.rootClasses}`)
     console.log(`override tag  : ${report.styleTagPresent ? "present" : "absent"}`)
@@ -90,7 +95,8 @@ async function commandDoctor(overrides: ReturnType<typeof readOverrides>): Promi
 
 async function commandApply(overrides: ReturnType<typeof readOverrides>, once: boolean): Promise<void> {
   const config = buildAppConfig(ROOT, overrides)
-  const [theme, mapping] = await Promise.all([loadTheme(config.themeFile), loadMapping(config.mappingFile)])
+  const theme = await loadTheme(config.themeFile)
+  const mapping = await loadMapping(config.mappingFile, theme)
   const css = buildCss({ theme, mapping })
   console.log(`theme         : ${theme.name} (${theme.id})`)
 
