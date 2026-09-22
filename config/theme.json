@@ -1,54 +1,366 @@
 {
-  "name": "OC-1",
-  "id": "oc-1",
+  "name": "Pink Blossom & Velvet",
+  "id": "pink-blossom-velvet",
   "light": {
     "seeds": {
-      "neutral": "#8e8b8b",
-      "primary": "#dcde8d",
-      "success": "#12c905",
-      "warning": "#ffdc17",
-      "error": "#fc533a",
-      "info": "#a753ae",
-      "interactive": "#034cff"
+      "neutral": "#b07d8d",
+      "primary": "#e91e63",
+      "success": "#10b981",
+      "warning": "#f59e0b",
+      "error": "#e11d48",
+      "info": "#ec4899",
+      "interactive": "#e91e63"
     },
     "accentScale": [
-      "#fcfdff",
-      "#f5faff",
-      "#eaf2ff",
-      "#daeaff",
-      "#c8e0ff",
-      "#b4d2ff",
-      "#98bfff",
-      "#73a4ff",
-      "#034cff",
-      "#0443de",
-      "#1251ec",
-      "#0f2b6c"
-    ]
+      "#fff5f7",
+      "#ffe4ec",
+      "#fcc2d7",
+      "#faa2c1",
+      "#f783ac",
+      "#f06595",
+      "#e64980",
+      "#d6336c",
+      "#c2255c",
+      "#a61e4d",
+      "#861b40",
+      "#4a0d23"
+    ],
+    "semantic": {
+      "page": {
+        "background": "#fff0f5",
+        "backgroundSecondary": "#ffe4ec",
+        "settingsBackground": "#fff0f5",
+        "actionbar": "#ffe4ec",
+        "surface": "#ffffff",
+        "poll": "#fff5f8",
+        "conversation": "#fff0f5"
+      },
+      "surface": {
+        "generic": "#fff7fa",
+        "genericHovered": "#ffe6ee",
+        "genericPressed": "#fcc2d7",
+        "genericMedium": "#ffe4ec",
+        "genericMediumHovered": "#fcc2d7",
+        "genericMediumPressed": "#faa2c1",
+        "genericAlt": "#fff5f8",
+        "disabled": "#fcedf2",
+        "inverse": "#4a0d23",
+        "inverseHovered": "#5e132e",
+        "inversePressed": "#74193a",
+        "staticLight": "#ffffff",
+        "staticHeavy": "#4a0d23"
+      },
+      "elevation": {
+        "base": "#fff0f5",
+        "risen": "#ffffff",
+        "sunken": "#ffe4ec",
+        "overlay": "#ffffff",
+        "overlayModal": "#ffffff",
+        "sidebar": "#ffe8f0"
+      },
+      "modal": {
+        "popup": "#ffffff",
+        "card": "#fff7fa",
+        "cardContrast": "#fff0f5"
+      },
+      "overlay": {
+        "scrim": "#4a0d234d",
+        "backdrop": "#4a0d2333",
+        "background": "#ffffff",
+        "textPrimary": "#350819",
+        "textSecondary": "#7a2b48"
+      },
+      "line": {
+        "generic": "#f3c5d6",
+        "genericLight": "#fae0eb",
+        "genericMedium": "#e89bb8",
+        "genericHeavy": "#d66b93",
+        "divider": "#f3c5d6",
+        "darkmode": "#e89bb8",
+        "compose": "#f3c5d6",
+        "mainBanner": "#f3c5d6",
+        "codeBlock": "#f3c5d6",
+        "joinCallBanner": "#f3c5d6",
+        "codeIncomingDivider": "#f3c5d6",
+        "codeOutgoingDivider": "#f3c5d6"
+      },
+      "focus": {
+        "color": "#e91e63",
+        "cardOutline": "#e91e63"
+      },
+      "text": {
+        "primary": "#350819",
+        "secondary": "#7a2b48",
+        "tertiary": "#a85473",
+        "disabled": "#d49bb0",
+        "inverse": "#ffffff",
+        "link": "#d6336c",
+        "linkHovered": "#a61e4d",
+        "staticLight": "#ffffff",
+        "staticHeavy": "#350819"
+      },
+      "icon": {
+        "primary": "#7a2b48",
+        "secondary": "#a85473"
+      },
+      "control": {
+        "brandSurface": "#e91e63",
+        "brandSurfaceHovered": "#d6336c",
+        "brandSurfacePressed": "#c2255c",
+        "brandSurfaceLight": "#ffe4ec",
+        "brandSurfaceLightHovered": "#fcc2d7",
+        "brandSurfaceLightPressed": "#faa2c1",
+        "buttonBrand": "#e91e63",
+        "buttonBrandHover": "#d6336c",
+        "buttonBrandActive": "#c2255c",
+        "buttonBrandText": "#ffffff",
+        "iconButtonPrimary": "#7a2b48",
+        "iconButtonPrimaryHoverBg": "#ffe4ec",
+        "iconButtonAccent": "#e91e63",
+        "iconButtonAccentHover": "#d6336c",
+        "iconButtonAccentPressed": "#c2255c",
+        "iconButtonAccentText": "#ffffff",
+        "messageButtonBackground": "#ffe4ec",
+        "messageButtonBackgroundHovered": "#fcc2d7",
+        "messageButtonText": "#861b40",
+        "sendButtonDestructive": "#e11d48"
+      },
+      "state": {
+        "cardHover": "#ffe8f0",
+        "cardActive": "#fcd5e3",
+        "cardDisabled": "#faedf3",
+        "cardNeutralHover": "#ffe8f0",
+        "cardNeutralActive": "#fcd5e3",
+        "cardContrastHover": "#fcd5e3",
+        "cardContrastActive": "#faa2c1",
+        "listItemActive": "#fcd5e3"
+      },
+      "selection": {
+        "messageRow": "#ffe8f0",
+        "reaction": "#ffe4ec",
+        "calendarCell": "#e91e63",
+        "segmentedControlChecked": "#e91e63"
+      },
+      "status": {
+        "dangerText": "#c2255c",
+        "dangerSurface": "#ffe4ec",
+        "dangerSurfaceHovered": "#fcc2d7",
+        "dangerSurfacePressed": "#faa2c1",
+        "dangerSurfaceLight": "#fff0f5",
+        "dangerSurfaceLightHovered": "#ffe4ec",
+        "dangerSurfaceLightPressed": "#fcc2d7",
+        "warningText": "#b45309",
+        "warningSurface": "#fef3c7",
+        "warningSurfaceLight": "#fffbeb",
+        "successText": "#047857",
+        "successSurface": "#d1fae5",
+        "successSurfaceLight": "#ecfdf5",
+        "infoText": "#9d174d",
+        "infoSurface": "#fce7f3",
+        "infoSurfaceLight": "#fdf2f8",
+        "neutralText": "#7a2b48"
+      },
+      "shadow": {
+        "color": "#59142f26",
+        "brand": "#e91e6340",
+        "popup": "0 8px 24px rgba(89, 20, 47, 0.15)",
+        "focusInset": "inset 0 0 0 2px #e91e63",
+        "focusPrimary": "0 0 0 2px #e91e63",
+        "card": "0 2px 8px rgba(89, 20, 47, 0.08)",
+        "cardHover": "0 4px 16px rgba(89, 20, 47, 0.14)",
+        "cardNeutral": "0 1px 4px rgba(89, 20, 47, 0.06)",
+        "cardNeutralHover": "0 4px 12px rgba(89, 20, 47, 0.12)",
+        "cardContrast": "0 2px 8px rgba(89, 20, 47, 0.12)",
+        "cardContrastHover": "0 6px 20px rgba(89, 20, 47, 0.18)",
+        "modal": "0 12px 32px rgba(89, 20, 47, 0.22)",
+        "reactionsPicker": "0 4px 16px rgba(89, 20, 47, 0.14)",
+        "joinCallBanner": "0 4px 16px rgba(233, 30, 99, 0.25)"
+      },
+      "gradient": {
+        "messageSkeleton": "linear-gradient(90deg, #ffe4ec 25%, #fff0f5 50%, #ffe4ec 75%)",
+        "diskLoading": "linear-gradient(90deg, #f06595 25%, #e91e63 50%, #f06595 75%)"
+      }
+    }
   },
   "dark": {
     "seeds": {
-      "neutral": "#716c6b",
-      "primary": "#fab283",
-      "success": "#12c905",
-      "warning": "#fcd53a",
-      "error": "#fc533a",
-      "info": "#edb2f1",
-      "interactive": "#034cff"
+      "neutral": "#804a5e",
+      "primary": "#ff4081",
+      "success": "#10b981",
+      "warning": "#fbbf24",
+      "error": "#f43f5e",
+      "info": "#f472b6",
+      "interactive": "#ff4081"
     },
     "accentScale": [
-      "#091120",
-      "#0d172b",
-      "#0c2255",
-      "#0c2a74",
-      "#113489",
-      "#18409b",
-      "#204cb1",
-      "#2558d0",
-      "#034cff",
-      "#0038ee",
-      "#89b5ff",
-      "#cde2ff"
-    ]
+      "#1f0612",
+      "#2c0b1b",
+      "#420f29",
+      "#5e1239",
+      "#80154b",
+      "#a61b60",
+      "#cc2277",
+      "#f0338f",
+      "#ff4081",
+      "#ff75a0",
+      "#ffa8c2",
+      "#ffe0eb"
+    ],
+    "semantic": {
+      "page": {
+        "background": "#1a0510",
+        "backgroundSecondary": "#240918",
+        "settingsBackground": "#1a0510",
+        "actionbar": "#240918",
+        "surface": "#2d0d1e",
+        "poll": "#290a1b",
+        "conversation": "#1a0510"
+      },
+      "surface": {
+        "generic": "#2d0d1e",
+        "genericHovered": "#3c1229",
+        "genericPressed": "#4d1734",
+        "genericMedium": "#381026",
+        "genericMediumHovered": "#4a1633",
+        "genericMediumPressed": "#5c1c40",
+        "genericAlt": "#250a19",
+        "disabled": "#200815",
+        "inverse": "#ffe0eb",
+        "inverseHovered": "#ffc2d6",
+        "inversePressed": "#ffa3c1",
+        "staticLight": "#ffffff",
+        "staticHeavy": "#1a0510"
+      },
+      "elevation": {
+        "base": "#1a0510",
+        "risen": "#2d0d1e",
+        "sunken": "#14030c",
+        "overlay": "#330f23",
+        "overlayModal": "#381026",
+        "sidebar": "#240918"
+      },
+      "modal": {
+        "popup": "#2d0d1e",
+        "card": "#2d0d1e",
+        "cardContrast": "#381026"
+      },
+      "overlay": {
+        "scrim": "#00000080",
+        "backdrop": "#0a010680",
+        "background": "#2d0d1e",
+        "textPrimary": "#ffe0eb",
+        "textSecondary": "#d488a5"
+      },
+      "line": {
+        "generic": "#4a1633",
+        "genericLight": "#381026",
+        "genericMedium": "#611c43",
+        "genericHeavy": "#802558",
+        "divider": "#4a1633",
+        "darkmode": "#611c43",
+        "compose": "#4a1633",
+        "mainBanner": "#611c43",
+        "codeBlock": "#4a1633",
+        "joinCallBanner": "#802558",
+        "codeIncomingDivider": "#4a1633",
+        "codeOutgoingDivider": "#4a1633"
+      },
+      "focus": {
+        "color": "#ff4081",
+        "cardOutline": "#ff4081"
+      },
+      "text": {
+        "primary": "#ffe6f0",
+        "secondary": "#e099b5",
+        "tertiary": "#b36484",
+        "disabled": "#663349",
+        "inverse": "#1a0510",
+        "link": "#ff6599",
+        "linkHovered": "#ff8fb5",
+        "staticLight": "#ffffff",
+        "staticHeavy": "#1a0510"
+      },
+      "icon": {
+        "primary": "#ffe6f0",
+        "secondary": "#e099b5"
+      },
+      "control": {
+        "brandSurface": "#e60067",
+        "brandSurfaceHovered": "#ff1a7f",
+        "brandSurfacePressed": "#cc005c",
+        "brandSurfaceLight": "#420f29",
+        "brandSurfaceLightHovered": "#5e1239",
+        "brandSurfaceLightPressed": "#80154b",
+        "buttonBrand": "#e60067",
+        "buttonBrandHover": "#ff1a7f",
+        "buttonBrandActive": "#cc005c",
+        "buttonBrandText": "#ffffff",
+        "iconButtonPrimary": "#ffe6f0",
+        "iconButtonPrimaryHoverBg": "#3c1229",
+        "iconButtonAccent": "#ff4081",
+        "iconButtonAccentHover": "#ff6599",
+        "iconButtonAccentPressed": "#e60067",
+        "iconButtonAccentText": "#ffffff",
+        "messageButtonBackground": "#3c1229",
+        "messageButtonBackgroundHovered": "#4d1734",
+        "messageButtonText": "#ffe6f0",
+        "sendButtonDestructive": "#f43f5e"
+      },
+      "state": {
+        "cardHover": "#381026",
+        "cardActive": "#471531",
+        "cardDisabled": "#220916",
+        "cardNeutralHover": "#381026",
+        "cardNeutralActive": "#471531",
+        "cardContrastHover": "#471531",
+        "cardContrastActive": "#571a3c",
+        "listItemActive": "#471531"
+      },
+      "selection": {
+        "messageRow": "#3d1129",
+        "reaction": "#420f29",
+        "calendarCell": "#e60067",
+        "segmentedControlChecked": "#e60067"
+      },
+      "status": {
+        "dangerText": "#ff6b8b",
+        "dangerSurface": "#3d0c1e",
+        "dangerSurfaceHovered": "#52122a",
+        "dangerSurfacePressed": "#691736",
+        "dangerSurfaceLight": "#2b0815",
+        "dangerSurfaceLightHovered": "#3d0c1e",
+        "dangerSurfaceLightPressed": "#52122a",
+        "warningText": "#fcd34d",
+        "warningSurface": "#3d2806",
+        "warningSurfaceLight": "#261904",
+        "successText": "#34d399",
+        "successSurface": "#063726",
+        "successSurfaceLight": "#042419",
+        "infoText": "#f472b6",
+        "infoSurface": "#380c27",
+        "infoSurfaceLight": "#240719",
+        "neutralText": "#e099b5"
+      },
+      "shadow": {
+        "color": "#00000080",
+        "brand": "#ff408166",
+        "popup": "0 8px 28px rgba(0, 0, 0, 0.65)",
+        "focusInset": "inset 0 0 0 2px #ff4081",
+        "focusPrimary": "0 0 0 2px #ff4081",
+        "card": "0 2px 10px rgba(0, 0, 0, 0.5)",
+        "cardHover": "0 6px 20px rgba(0, 0, 0, 0.65)",
+        "cardNeutral": "0 2px 8px rgba(0, 0, 0, 0.4)",
+        "cardNeutralHover": "0 4px 16px rgba(0, 0, 0, 0.55)",
+        "cardContrast": "0 4px 12px rgba(0, 0, 0, 0.55)",
+        "cardContrastHover": "0 8px 24px rgba(0, 0, 0, 0.7)",
+        "modal": "0 16px 40px rgba(0, 0, 0, 0.8)",
+        "reactionsPicker": "0 4px 20px rgba(0, 0, 0, 0.6)",
+        "joinCallBanner": "0 4px 20px rgba(255, 64, 129, 0.35)"
+      },
+      "gradient": {
+        "messageSkeleton": "linear-gradient(90deg, #240918 25%, #381026 50%, #240918 75%)",
+        "diskLoading": "linear-gradient(90deg, #cc2277 25%, #ff4081 50%, #cc2277 75%)"
+      }
+    }
   }
 }

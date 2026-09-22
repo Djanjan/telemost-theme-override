@@ -240,11 +240,13 @@ const ruleBinding = (over: Record<string, unknown>): Record<string, unknown> => 
  * ================================================================== */
 
 describe("backward compatibility: old configs parse unchanged", () => {
-  test("T-BC-01: shipped config/theme.json parses; output carries no semantic key", () => {
-    const parsed = parseOk<Record<string, unknown>>(schemaNs.desktopThemeSchema, CONFIG_THEME)
+  test("T-BC-01: legacy theme config parses; output carries no semantic key", () => {
+    const parsed = parseOk<Record<string, unknown>>(schemaNs.desktopThemeSchema, legacyTheme())
     expect(Object.keys(parsed.light as object)).not.toContain("semantic")
     expect(Object.keys(parsed.dark as object)).not.toContain("semantic")
-    expect(parsed.name).toBe((CONFIG_THEME as { name: string }).name)
+    expect(parsed.name).toBe(legacyTheme().name)
+    // Also verify shipped config/theme.json parses successfully
+    parseOk<Record<string, unknown>>(schemaNs.desktopThemeSchema, CONFIG_THEME)
   })
 
   test("T-BC-02a: shipped config/mapping.json parses; existing fields survive untouched", () => {
