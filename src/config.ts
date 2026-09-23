@@ -221,6 +221,7 @@ export async function loadMapping(path: string, theme?: unknown): Promise<Mappin
 
 export interface CliOverrides {
   readonly theme?: string
+  readonly preset?: string
   readonly mapping?: string
   readonly port?: number
   readonly exe?: string

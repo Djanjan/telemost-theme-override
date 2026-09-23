@@ -235,13 +235,57 @@ Get-FileHash telemost-start.exe -Algorithm SHA256
 При `auto` окно остаётся открытым, если есть предупреждение — чтобы его можно
 было прочитать.
 
+## Пресеты тем и быстрый выбор
+
+В программу встроена коллекция готовых тем, а также поддержка сохранения своих пресетов и обмена ими:
+
+### Встроенные темы:
+- **`pastel-blossom`** — Pastel Blossom & Rose Velvet (нежный розовый / бархатная роза)
+- **`tokyo-night`** — Tokyo Night (глубокий неоновый индиго / чистый светлый)
+- **`nord`** — Nord Frost (холодная арктическая палитра Nord)
+- **`catppuccin`** — Catppuccin Mocha & Latte (популярная палитра Catppuccin)
+- **`emerald`** — Cyberpunk Emerald (высококонтрастный изумрудно-неоновый киберпанк)
+- **`dracula`** — Dracula Vampire (классический фиолетово-розовый готический стиль)
+- **`monokai`** — Monokai Pro Sunset (тёплый угольный с янтарно-золотым)
+- **`cobalt`** — Cobalt Midnight (глубокий кобальтово-синий)
+
+### Команды для работы с пресетами:
+
+```powershell
+# Посмотреть список всех доступных пресетов (встроенных и пользовательских)
+telemost-start.exe --list-presets
+
+# Запустить Телемост с конкретным пресетом или файлом темы
+telemost-start.exe --preset nord
+telemost-start.exe --preset tokyo-night
+telemost-start.exe --preset C:\path\to\theme.json
+
+# Установить пресет по умолчанию (сохраняется в config.json)
+telemost-start.exe --set-preset nord
+
+# Сохранить текущие настройки (theme.json) как именованный пресет
+telemost-start.exe --save-preset my-favorite-theme
+
+# Импортировать файл темы от друга в папку пресетов
+telemost-start.exe --import-preset friend-theme.json
+
+# Экспортировать тему в единый самодостаточный JSON-файл для отправки другу (с упаковкой обоев)
+telemost-start.exe --export-preset tokyo-night --out tokyo-night-share.json
+```
+
 ## Команды
 
 ```
-telemost-start.exe            запустить и держать тему
-telemost-start.exe --once     применить один раз и выйти
-telemost-start.exe --where    показать, где лежат настройки
-telemost-start.exe --help     справка
+telemost-start.exe                          запустить и держать активную тему
+telemost-start.exe --preset <name|path>     запустить с указанным пресетом
+telemost-start.exe --list-presets           список всех доступных пресетов
+telemost-start.exe --set-preset <name>      выбрать тему по умолчанию
+telemost-start.exe --save-preset <name>     сохранить тему как пресет
+telemost-start.exe --import-preset <path>   импортировать тему
+telemost-start.exe --export-preset <name>   экспортировать тему в JSON
+telemost-start.exe --once                   применить один раз и выйти
+telemost-start.exe --where                  показать, где лежат настройки
+telemost-start.exe --help                   справка
 ```
 
 ## Почему так сделано

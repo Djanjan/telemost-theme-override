@@ -6,7 +6,7 @@ import type { desktopThemeSchema } from "../schema"
 /** Written to the user's config directory on first run. */
 export const DEFAULT_THEME: z.infer<typeof desktopThemeSchema> = {
   "name": "Pastel Blossom & Rose Velvet",
-  "id": "pastel-blossom-rose-velvet",
+  "id": "pastel-blossom",
   "light": {
     "seeds": {
       "neutral": "#b89da8",
