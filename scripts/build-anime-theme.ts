@@ -2,10 +2,12 @@ import { writeFile } from "node:fs/promises"
 import { resolve } from "node:path"
 import { desktopThemeSchema, type DesktopTheme } from "../src/schema"
 
-function toSvgDataUri(svgContent: string): string {
-  const minified = svgContent.replace(/\s+/g, " ").trim()
-  const base64 = Buffer.from(minified).toString("base64")
-  return `data:image/svg+xml;base64,${base64}`
+import { readFile } from "node:fs/promises"
+
+async function fileToPngDataUri(filePath: string): Promise<string> {
+  const buffer = await readFile(resolve(process.cwd(), filePath))
+  const base64 = buffer.toString("base64")
+  return `data:image/png;base64,${base64}`
 }
 
 /**
@@ -516,20 +518,26 @@ function createKawaiiPatternSvg(isDark: boolean): string {
 }
 
 async function main(): Promise<void> {
-  // Light mode SVGs
-  const lightChatDataUri = toSvgDataUri(createChatAnimeGirlSvg(false))
-  const lightSidebarDataUri = toSvgDataUri(createSidebarChibiSvg(false))
-  const lightCallDataUri = toSvgDataUri(createCallAnimeGirlSvg(false))
-  const lightHomeDataUri = toSvgDataUri(createHomeAnimeGirlSvg(false))
-  const lightPageDataUri = toSvgDataUri(createKawaiiPatternSvg(false))
-  const peekingChibiDataUri = toSvgDataUri(createPeekingChibiSvg())
+  // High-res PNG anime girl illustrations from assets/anime/
+  const chatPngDataUri = await fileToPngDataUri("assets/anime/chat-anime-girl.png")
+  const sidebarPngDataUri = await fileToPngDataUri("assets/anime/sidebar-chibi.png")
+  const callPngDataUri = await fileToPngDataUri("assets/anime/call-anime-girl.png")
+  const homePngDataUri = await fileToPngDataUri("assets/anime/home-anime-girl.png")
+  const pagePngDataUri = await fileToPngDataUri("assets/anime/pattern-anime.png")
+  const peekingPngDataUri = await fileToPngDataUri("assets/anime/chibi-peeking.png")
 
-  // Dark mode SVGs
-  const darkChatDataUri = toSvgDataUri(createChatAnimeGirlSvg(true))
-  const darkSidebarDataUri = toSvgDataUri(createSidebarChibiSvg(true))
-  const darkCallDataUri = toSvgDataUri(createCallAnimeGirlSvg(true))
-  const darkHomeDataUri = toSvgDataUri(createHomeAnimeGirlSvg(true))
-  const darkPageDataUri = toSvgDataUri(createKawaiiPatternSvg(true))
+  const lightChatDataUri = chatPngDataUri
+  const lightSidebarDataUri = sidebarPngDataUri
+  const lightCallDataUri = callPngDataUri
+  const lightHomeDataUri = homePngDataUri
+  const lightPageDataUri = pagePngDataUri
+  const peekingChibiDataUri = peekingPngDataUri
+
+  const darkChatDataUri = chatPngDataUri
+  const darkSidebarDataUri = sidebarPngDataUri
+  const darkCallDataUri = callPngDataUri
+  const darkHomeDataUri = homePngDataUri
+  const darkPageDataUri = pagePngDataUri
 
   const theme: DesktopTheme = {
     name: "Anime Waifu Dream & Sakura Pink",
