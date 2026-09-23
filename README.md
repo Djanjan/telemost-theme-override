@@ -165,6 +165,44 @@ Get-FileHash telemost-start.exe -Algorithm SHA256
 
 Всего доступно **124 семантических слота** в 15 категориях (`page`, `surface`, `elevation`, `modal`, `overlay`, `line`, `focus`, `text`, `icon`, `control`, `state`, `selection`, `status`, `shadow`, `gradient`). Полная документация слотов: [docs/semantic-colors.md](docs/semantic-colors.md).
 
+##### Способ Г. Картинки и обои на фон в разных местах (`backgrounds`)
+Вы можете установить любые фоновые изображения (обои, текстуры, арты, узоры) для окна чата, главного экрана, боковой панели со списком чатов, экрана звонка, страницы логина и модальных окон:
+
+```json
+{
+  "name": "Pastel Blossom with Chat Wallpaper",
+  "id": "pastel-blossom-wallpaper",
+  "light": {
+    "seeds": { ... },
+    "backgrounds": {
+      "chat": {
+        "image": "wallpapers/light-bg.png",
+        "size": "cover",
+        "position": "center",
+        "overlay": "rgba(255, 245, 248, 0.85)"
+      },
+      "sidebar": "wallpapers/pattern.png"
+    }
+  },
+  "dark": {
+    "seeds": { ... },
+    "backgrounds": {
+      "chat": {
+        "image": "wallpapers/dark-bg.png",
+        "size": "cover",
+        "position": "center",
+        "overlay": "rgba(32, 18, 26, 0.8)"
+      }
+    }
+  }
+}
+```
+
+- Поддерживаются локальные файлы (`.png`, `.jpg`, `.webp`, `.svg`), веб-ссылки `https://...`, Data URI и градиенты.
+- Параметр `overlay` добавляет полупрозрачную подложку поверх картинки, чтобы текст сообщений оставался 100% читаемым.
+- Доступные зоны: `chat` (чат), `page` (весь фон), `sidebar` (боковая панель), `home` (главный экран), `call` (экран звонка), `login` (вход), `modal` (карточки и окна), `settings` (настройки), `custom` (любой CSS-селектор).
+- Подробное руководство и все параметры: [docs/background-images.md](docs/background-images.md).
+
 ---
 
 #### Шаг 3. Примените тему

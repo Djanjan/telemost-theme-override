@@ -346,6 +346,92 @@ export const semanticSlotsSchema = strictKeyed(semanticCategoryShape)
 
 export type SemanticSlots = z.infer<typeof semanticSlotsSchema>
 
+/* ------------------------------------------------------------------ *
+ * Background images configuration
+ *
+ * Configures background images, wallpapers, and textures across Telemost
+ * UI surfaces (chat, page, sidebar, home, login, call, modals, settings).
+ * ------------------------------------------------------------------ */
+
+export const backgroundPropertiesSchema = strictKeyed({
+  image: z
+    .string()
+    .min(1)
+    .max(50_000_000)
+    .refine(
+      (v) => !/[{}!]/.test(v) && !/[\r\n]/.test(v),
+      "image string must not contain {, }, ! or linebreaks",
+    ),
+  size: safeCssValueSchema.optional(),
+  position: safeCssValueSchema.optional(),
+  repeat: safeCssValueSchema.optional(),
+  attachment: safeCssValueSchema.optional(),
+  overlay: safeCssValueSchema.optional(),
+  blendMode: safeCssValueSchema.optional(),
+  opacity: z.number().min(0).max(1).optional(),
+})
+
+export const backgroundItemSchema = z.union([
+  z
+    .string()
+    .min(1)
+    .max(50_000_000)
+    .refine(
+      (v) => !/[{}!]/.test(v) && !/[\r\n]/.test(v),
+      "image string must not contain {, }, ! or linebreaks",
+    ),
+  backgroundPropertiesSchema,
+])
+
+export const customBackgroundRuleSchema = strictKeyed({
+  selector: z
+    .string()
+    .min(1)
+    .refine(
+      (v) => !/[{}!;]/.test(v) && !/[\r\n]/.test(v),
+      "selector must not contain {, }, !, ;, or linebreaks",
+    ),
+  image: z
+    .string()
+    .min(1)
+    .max(50_000_000)
+    .refine(
+      (v) => !/[{}!]/.test(v) && !/[\r\n]/.test(v),
+      "image string must not contain {, }, ! or linebreaks",
+    ),
+  size: safeCssValueSchema.optional(),
+  position: safeCssValueSchema.optional(),
+  repeat: safeCssValueSchema.optional(),
+  attachment: safeCssValueSchema.optional(),
+  overlay: safeCssValueSchema.optional(),
+  blendMode: safeCssValueSchema.optional(),
+  opacity: z.number().min(0).max(1).optional(),
+})
+
+export const backgroundsSchema = strictKeyed({
+  page: backgroundItemSchema.optional(),
+  app: backgroundItemSchema.optional(),
+  chat: backgroundItemSchema.optional(),
+  conversation: backgroundItemSchema.optional(),
+  sidebar: backgroundItemSchema.optional(),
+  threads: backgroundItemSchema.optional(),
+  home: backgroundItemSchema.optional(),
+  hub: backgroundItemSchema.optional(),
+  login: backgroundItemSchema.optional(),
+  call: backgroundItemSchema.optional(),
+  meeting: backgroundItemSchema.optional(),
+  modal: backgroundItemSchema.optional(),
+  card: backgroundItemSchema.optional(),
+  popup: backgroundItemSchema.optional(),
+  settings: backgroundItemSchema.optional(),
+  custom: z.array(customBackgroundRuleSchema).optional(),
+})
+
+export type BackgroundProperties = z.infer<typeof backgroundPropertiesSchema>
+export type BackgroundItem = z.infer<typeof backgroundItemSchema>
+export type CustomBackgroundRule = z.infer<typeof customBackgroundRuleSchema>
+export type BackgroundsConfig = z.infer<typeof backgroundsSchema>
+
 export const themeVariantSchema = z.object({
   seeds: themeSeedColorsSchema,
   /**
@@ -358,19 +444,26 @@ export const themeVariantSchema = z.object({
    * Telemost rendering is preserved. Strict at every level.
    */
   semantic: semanticSlotsSchema.optional(),
+  /**
+   * Optional background images per variant (e.g. chat, page, sidebar wallpapers).
+   */
+  backgrounds: backgroundsSchema.optional(),
 })
 
+export type DesktopTheme = z.infer<typeof desktopThemeSchema>
+
 /**
- * A theme is a light/dark pair of seed sets — nothing else.
- *
- * Porting a theme from shuvcode means copying its two `seeds` objects and
- * dropping `diffAdd`/`diffDelete`. No other transformation is required.
+ * A theme is a light/dark pair of seed sets + optional semantic slots & backgrounds.
  */
 export const desktopThemeSchema = z.object({
   name: z.string().min(1),
   id: z.string().min(1),
   light: themeVariantSchema,
   dark: themeVariantSchema,
+  /**
+   * Optional root-level background images shared across both modes.
+   */
+  backgrounds: backgroundsSchema.optional(),
 })
 
 export type ThemeSeedName = keyof z.infer<typeof themeSeedColorsSchema>

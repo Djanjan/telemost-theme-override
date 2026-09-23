@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises"
-import { resolve } from "node:path"
+import { dirname, resolve } from "node:path"
 import {
   SEMANTIC_SLOT_BY_TOKEN,
   SEMANTIC_SLOT_REGISTRY,
@@ -17,6 +17,7 @@ import {
   type MappingConfig,
   type SemanticSlots,
 } from "./schema"
+import { resolveThemeBackgrounds } from "./theme/backgrounds"
 import type { z } from "zod"
 
 export type DesktopTheme = z.infer<typeof desktopThemeSchema>
@@ -191,7 +192,12 @@ export async function loadTheme(path: string): Promise<DesktopTheme> {
     throw new ConfigError(`invalid theme file ${path}:\n${describeIssues(parsed.error.issues)}`)
   }
   assertNoModeNestingInSemantic(parsed.data, `file ${path}`)
-  return parsed.data
+  try {
+    return await resolveThemeBackgrounds(parsed.data, dirname(resolve(path)))
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error)
+    throw new ConfigError(`invalid theme file ${path}: ${reason}`)
+  }
 }
 
 /**

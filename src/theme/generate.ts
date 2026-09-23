@@ -14,6 +14,7 @@ import {
   type SemanticSlotEntry,
   type ThemeMode,
 } from "./semantic-slots"
+import { buildBackgroundSections } from "./backgrounds"
 import type { z } from "zod"
 
 type DesktopTheme = z.infer<typeof desktopThemeSchema>
@@ -387,7 +388,7 @@ function buildRuleBindingSections(theme: DesktopTheme, mapping: MappingConfig): 
     readonly property: string
     readonly value: string
   }> = []
-  for (const binding of mapping.semanticBindings) {
+  for (const binding of mapping.semanticBindings ?? []) {
     if (binding.kind !== "rule") continue
     const entry = SEMANTIC_SLOT_REGISTRY.get(binding.slot)
     if (!entry) continue
@@ -422,12 +423,14 @@ function buildAutoMediaSections(sections: {
   readonly autoRoot: ReadonlyArray<SemanticDeclaration>
   readonly autoBrand: ReadonlyArray<SemanticDeclaration>
   readonly darkOverrides: ReadonlyArray<SemanticDeclaration>
+  readonly autoBackgrounds?: ReadonlyArray<string>
 }): string {
   const inner = [
     renderBlock(SEMANTIC_AUTO_SCOPES.root.join(", "), sections.darkRamps),
     renderBlock(SEMANTIC_AUTO_SCOPES.root.join(", "), sections.autoRoot),
     renderBlock(SEMANTIC_AUTO_SCOPES.brand.join(", "), sections.autoBrand),
     renderBlock(SEMANTIC_AUTO_SCOPES.brand.join(", "), sections.darkOverrides),
+    ...(sections.autoBackgrounds ?? []),
   ].filter((block) => block.length > 0)
   if (inner.length === 0) return ""
   return `@media (prefers-color-scheme: dark) {\n${inner.map(indentBlock).join("\n\n")}\n}`
@@ -455,9 +458,9 @@ export interface BuildCssOptions {
  * Canonical section order (plan §12): banner → ramps → semantic scope blocks
  * (R → RB → RC → RBC → MN → REF, light then dark) → raw overrides (emitted
  * after semantics so `lightOverrides`/`darkOverrides` win cascade ties, §6.3)
- * → targeted rule bindings (light, dark, static) → the single dark
- * `theme_auto` media block. The output is deterministic: registry order,
- * sorted maps, fixed selector lists, no timestamps.
+ * → targeted rule bindings (light, dark, static) → background image sections
+ * → the single dark `theme_auto` media block. The output is deterministic:
+ * registry order, sorted maps, fixed selector lists, no timestamps.
  */
 export function buildCss(options: BuildCssOptions): string {
   const { theme, mapping } = options
@@ -501,6 +504,7 @@ export function buildCss(options: BuildCssOptions): string {
     .join("\n")
 
   const semantic = buildSemanticSections(theme)
+  const backgrounds = buildBackgroundSections(theme)
 
   // Orb scopes brand primitives on :root; the dark/light split rides on
   // .theme_dark / .theme_light classes that Telemost puts on <html>.
@@ -512,6 +516,7 @@ export function buildCss(options: BuildCssOptions): string {
     renderBlock(":root, :root.brand_telemost", lightOverrides),
     renderBlock(":root.theme_dark, .theme_dark:root, .theme_dark:root.brand_telemost", darkOverrides),
     ...buildRuleBindingSections(theme, mapping),
+    ...backgrounds.topLevel,
   ]
 
   // theme_auto follows the OS preference; see plan §8 for why only the dark
@@ -521,6 +526,7 @@ export function buildCss(options: BuildCssOptions): string {
     autoRoot: semantic.autoRoot,
     autoBrand: semantic.autoBrand,
     darkOverrides,
+    autoBackgrounds: backgrounds.autoDark,
   })
   if (media.length > 0) sections.push(media)
 
