@@ -288,7 +288,7 @@ describe("listPresets", () => {
       repoDir: customRepoDir,
     })
 
-    expect(list.length).toBeGreaterThanOrEqual(8)
+    expect(list.length).toBeGreaterThanOrEqual(9)
     const builtinIds = Object.keys(BUILTIN_PRESETS)
     for (const id of builtinIds) {
       const found = list.find((p) => p.id === id)
@@ -384,7 +384,7 @@ describe("listPresets", () => {
       repoDir: customRepoDir,
     })
 
-    expect(list.length).toBeGreaterThanOrEqual(8)
+    expect(list.length).toBeGreaterThanOrEqual(9)
     expect(list.find((p) => p.id === "corrupt")).toBeUndefined()
     expect(list.find((p) => p.id === "invalid")).toBeUndefined()
   })
@@ -832,6 +832,7 @@ describe("setActivePreset", () => {
 
 describe("Built-in Presets CSS Generation & Integrity", () => {
   const expectedPresetIds = [
+    "anime-pink",
     "catppuccin",
     "cobalt",
     "dracula",
@@ -842,7 +843,7 @@ describe("Built-in Presets CSS Generation & Integrity", () => {
     "tokyo-night",
   ]
 
-  test("all expected 8 built-in presets exist in BUILTIN_PRESETS", () => {
+  test("all expected 9 built-in presets exist in BUILTIN_PRESETS", () => {
     for (const id of expectedPresetIds) {
       expect(BUILTIN_PRESETS[id]).toBeDefined()
       expect(BUILTIN_PRESETS[id]?.id).toBe(id)
@@ -877,7 +878,7 @@ describe("Built-in Presets CSS Generation & Integrity", () => {
     if (!existsSync(repoPresetsDir)) return
 
     const files = readdirSync(repoPresetsDir).filter((f) => f.endsWith(".json"))
-    expect(files.length).toBeGreaterThanOrEqual(8)
+    expect(files.length).toBeGreaterThanOrEqual(9)
 
     for (const file of files) {
       const fullPath = join(repoPresetsDir, file)
