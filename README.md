@@ -235,43 +235,127 @@ Get-FileHash telemost-start.exe -Algorithm SHA256
 При `auto` окно остаётся открытым, если есть предупреждение — чтобы его можно
 было прочитать.
 
-## Пресеты тем и быстрый выбор
+## Работа с пресетами тем (готовые темы, сохранение и шеринг)
 
-В программу встроена коллекция готовых тем, а также поддержка сохранения своих пресетов и обмена ими:
+В программу встроен полноценный менеджер пресетов. Вы можете мгновенно переключаться между готовыми темами, сохранять свои варианты оформления, экспортировать их в единый файл для друзей и импортировать чужие темы.
 
-### Встроенные темы:
-- **`pastel-blossom`** — Pastel Blossom & Rose Velvet (нежный розовый / бархатная роза)
-- **`tokyo-night`** — Tokyo Night (глубокий неоновый индиго / чистый светлый)
-- **`nord`** — Nord Frost (холодная арктическая палитра Nord)
-- **`catppuccin`** — Catppuccin Mocha & Latte (популярная палитра Catppuccin)
-- **`emerald`** — Cyberpunk Emerald (высококонтрастный изумрудно-неоновый киберпанк)
-- **`dracula`** — Dracula Vampire (классический фиолетово-розовый готический стиль)
-- **`monokai`** — Monokai Pro Sunset (тёплый угольный с янтарно-золотым)
-- **`cobalt`** — Cobalt Midnight (глубокий кобальтово-синий)
+---
 
-### Команды для работы с пресетами:
+### Встроенные темы из коробки
+
+| Идентификатор (ID) | Название темы | Описание и акценты |
+| :--- | :--- | :--- |
+| **`pastel-blossom`** | Pastel Blossom & Rose Velvet | Нежный пудрово-розовый / глубокая бархатная роза *(дефолт)* |
+| **`tokyo-night`** | Tokyo Night | Неоновый индиго и фиолетовый `#7aa2f7` на глубоком тёмном фоне |
+| **`nord`** | Nord Frost | Легендарная арктическая палитра Nord (`#88c0d0`, `#2e3440`) |
+| **`catppuccin`** | Catppuccin Mocha & Latte | Уютная палитра Catppuccin (Mocha для тёмной, Latte для светлой) |
+| **`emerald`** | Cyberpunk Emerald | Высококонтрастный киберпанк с неоновым изумрудным `#00ff9f` |
+| **`dracula`** | Dracula Vampire | Классическая тёмная тема Dracula с фиолетово-розовыми акцентами |
+| **`monokai`** | Monokai Pro Sunset | Тёплый угольный фон с янтарно-золотым и коралловым сиянием |
+| **`cobalt`** | Cobalt Midnight | Глубокий кобальтово-синий стиль shuvcode (`#388bfd`) |
+
+---
+
+### Сценарии работы с пресетами
+
+#### 1. Посмотреть список всех доступных пресетов
 
 ```powershell
-# Посмотреть список всех доступных пресетов (встроенных и пользовательских)
 telemost-start.exe --list-presets
-
-# Запустить Телемост с конкретным пресетом или файлом темы
-telemost-start.exe --preset nord
-telemost-start.exe --preset tokyo-night
-telemost-start.exe --preset C:\path\to\theme.json
-
-# Установить пресет по умолчанию (сохраняется в config.json)
-telemost-start.exe --set-preset nord
-
-# Сохранить текущие настройки (theme.json) как именованный пресет
-telemost-start.exe --save-preset my-favorite-theme
-
-# Импортировать файл темы от друга в папку пресетов
-telemost-start.exe --import-preset friend-theme.json
-
-# Экспортировать тему в единый самодостаточный JSON-файл для отправки другу (с упаковкой обоев)
-telemost-start.exe --export-preset tokyo-night --out tokyo-night-share.json
 ```
+Команда выведет таблицу всех встроенных тем и пользовательских пресетов из папки `%LOCALAPPDATA%\TelemostThemeOverride\presets\`, отметив звёздочкой `*` текущую активную тему.
+
+#### 2. Запустить Телемост с выбранным пресетом
+
+Вы можете запускать Телемост сначала с одной темой, затем с другой:
+
+```powershell
+# Запуск с темой Nord:
+telemost-start.exe --preset nord
+
+# Запуск с темой Tokyo Night:
+telemost-start.exe --preset tokyo-night
+
+# Запуск с темой Cyberpunk Emerald:
+telemost-start.exe --preset emerald
+
+# Запуск напрямую из любого .json файла на диске:
+telemost-start.exe --preset "C:\Users\User\Downloads\my-custom-theme.json"
+```
+
+> **Подсказка:** Если Телемост уже открыт, лаунчер применит новую тему на лету прямо в работающее окно без необходимости перезапускать программу.
+
+#### 3. Установить тему по умолчанию
+
+Чтобы не указывать `--preset` при каждом запуске:
+
+```powershell
+telemost-start.exe --set-preset nord
+```
+Эта команда запишет `"preset": "nord"` в ваш `config.json`. После этого при обычном клике на `telemost-start.exe` всегда будет запускаться выбранная тема. Чтобы вернуться к ручной правке `theme.json`, установите `--set-preset custom`.
+
+#### 4. Сохранить текущую тему как новый пресет
+
+Когда вы настроили цвета или добавили фоновые обои в `theme.json`, сохраните результат как отдельный пресет:
+
+```powershell
+telemost-start.exe --save-preset my-sunset-theme
+```
+Файл сохранится в `%LOCALAPPDATA%\TelemostThemeOverride\presets\my-sunset-theme.json` и сразу появится в списке `--list-presets`.
+
+#### 5. Экспортировать тему для отправки другу (шеринг)
+
+Если в вашей теме использовались локальные фоновые картинки (обои чата, сайдбара и т.д.), обычная отправка JSON не передаст файлы картинок. 
+Команда `--export-preset` автоматически упаковывает все локальные картинки в самодостаточный формат Base64 Data URI внутри одного `.json` файла:
+
+```powershell
+# Экспорт встроенной или пользовательской темы в отдельный файл:
+telemost-start.exe --export-preset tokyo-night --out tokyo-shareable.json
+
+# Экспорт текущей рабочей темы:
+telemost-start.exe --export-preset custom --out my-cool-theme.json
+```
+Полученный файл `tokyo-shareable.json` можно скинуть другу в Телеграм или Телемост — у него сразу будут и цвета, и фоновые обои без необходимости настраивать пути.
+
+#### 6. Импортировать пресет от друга
+
+Получив файл темы, импортируйте его одной командой:
+
+```powershell
+telemost-start.exe --import-preset friend-theme.json
+```
+Лаунчер проверит корректность темы и сохранит её в вашу папку пресетов. После этого её можно сразу запускать через `telemost-start.exe --preset <id>`.
+
+---
+
+### Где хранятся пользовательские пресеты
+
+Все ваши сохранённые и импортированные темы лежат в папке:
+```
+%LOCALAPPDATA%\TelemostThemeOverride\presets\
+```
+Вы можете просто копировать сюда любые `.json` файлы тем — программа автоматически их распознает.
+
+---
+
+### Использование пресетов в режиме разработки (`bun`)
+
+Для разработчиков, работающих с исходным кодом:
+
+```powershell
+# Применить пресет:
+bun run apply -- --preset nord
+
+# Сгенерировать CSS для пресета в файл:
+bun run build-css -- --preset tokyo-night --out dist/tokyo.css
+
+# Посмотреть список пресетов:
+bun run main.ts presets
+
+# Сохранить или экспортировать:
+bun run apply -- --export-preset catppuccin --out catppuccin-shared.json
+```
+Новые пресеты для репозитория добавляются в папку `presets/<id>.json` и автоматически валидируются скриптом `bun run sync-defaults` перед сборкой бинарника.
 
 ## Команды
 
