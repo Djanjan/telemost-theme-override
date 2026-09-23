@@ -353,15 +353,59 @@ export type SemanticSlots = z.infer<typeof semanticSlotsSchema>
  * UI surfaces (chat, page, sidebar, home, login, call, modals, settings).
  * ------------------------------------------------------------------ */
 
+const DATA_URI_IMAGE_REGEX = /^data:image\/(?:png|jpeg|jpg|webp|gif|avif|svg\+xml);base64,[A-Za-z0-9+/=]+$/
+const GRADIENT_PREFIX_REGEX = /^(?:linear|radial|conic)-gradient\(/i
+
+export const backgroundImageValueSchema = z
+  .string()
+  .min(1)
+  .max(50_000_000)
+  .refine(
+    (v) => !/\/\*|\*\//.test(v),
+    "image must not contain CSS comments (/* or */)",
+  )
+  .refine(
+    (v) => !/^https?:\/\//i.test(v.trim()),
+    "remote http(s) URLs are forbidden for security and privacy; use local files or data URIs",
+  )
+  .refine(
+    (v) => {
+      const trimmed = v.trim()
+      if (DATA_URI_IMAGE_REGEX.test(trimmed)) return true
+      if (GRADIENT_PREFIX_REGEX.test(trimmed)) {
+        return (
+          !/[;{}@"'\\]/.test(trimmed) &&
+          !/url\(/i.test(trimmed) &&
+          balancedParens(trimmed)
+        )
+      }
+      return (
+        !/[;{}@"'\!\\()[\]\s\r\n]/.test(trimmed) &&
+        !/url\(/i.test(trimmed)
+      )
+    },
+    "image must be a valid base64 data URI (data:image/...), a CSS gradient without url(), or a safe local file path",
+  )
+
+export const customBackgroundSelectorSchema = z
+  .string()
+  .min(1)
+  .max(512)
+  .regex(
+    /^[a-zA-Z0-9#._: >+~,-]+$/,
+    "selector may only contain alphanumeric characters, spaces, and CSS combinators (# . _ : > + ~ , -)",
+  )
+  .refine(
+    (v) => !/[[\]"';{}@!\\/*]/.test(v),
+    'selector must not contain [, ], ", \', ;, {, }, @, !, \\, or comments',
+  )
+  .refine(
+    (v) => !/\b(?:input|textarea)\b/i.test(v),
+    "custom selectors cannot target form input elements (keylogger prevention)",
+  )
+
 export const backgroundPropertiesSchema = strictKeyed({
-  image: z
-    .string()
-    .min(1)
-    .max(50_000_000)
-    .refine(
-      (v) => !/[{}!]/.test(v) && !/[\r\n]/.test(v),
-      "image string must not contain {, }, ! or linebreaks",
-    ),
+  image: backgroundImageValueSchema,
   size: safeCssValueSchema.optional(),
   position: safeCssValueSchema.optional(),
   repeat: safeCssValueSchema.optional(),
@@ -372,33 +416,13 @@ export const backgroundPropertiesSchema = strictKeyed({
 })
 
 export const backgroundItemSchema = z.union([
-  z
-    .string()
-    .min(1)
-    .max(50_000_000)
-    .refine(
-      (v) => !/[{}!]/.test(v) && !/[\r\n]/.test(v),
-      "image string must not contain {, }, ! or linebreaks",
-    ),
+  backgroundImageValueSchema,
   backgroundPropertiesSchema,
 ])
 
 export const customBackgroundRuleSchema = strictKeyed({
-  selector: z
-    .string()
-    .min(1)
-    .refine(
-      (v) => !/[{}!;]/.test(v) && !/[\r\n]/.test(v),
-      "selector must not contain {, }, !, ;, or linebreaks",
-    ),
-  image: z
-    .string()
-    .min(1)
-    .max(50_000_000)
-    .refine(
-      (v) => !/[{}!]/.test(v) && !/[\r\n]/.test(v),
-      "image string must not contain {, }, ! or linebreaks",
-    ),
+  selector: customBackgroundSelectorSchema,
+  image: backgroundImageValueSchema,
   size: safeCssValueSchema.optional(),
   position: safeCssValueSchema.optional(),
   repeat: safeCssValueSchema.optional(),

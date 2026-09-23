@@ -536,6 +536,8 @@ export function semanticRuleId(slotId: string, mode: RuleMode): string {
   return `semantic.${slotId}.${mode}`
 }
 
+import type { SemanticSlots } from "../schema"
+
 export interface ResolvedSemanticTarget {
   readonly slot: SemanticSlotEntry
   /** Emission scope selector lists per mode, exactly as declared in plan §9. */
@@ -547,4 +549,14 @@ export function resolveSemanticTargets(slotId: string): ResolvedSemanticTarget |
   const slot = SEMANTIC_SLOT_REGISTRY.get(slotId)
   if (!slot) return undefined
   return { slot, scopeSelectors: SEMANTIC_SCOPE_BLOCKS[slot.scopeClass] }
+}
+
+/** Reads the semantic value a slot carries in one mode's `semantic` object. */
+export function getSemanticSlotValue(
+  semantic: SemanticSlots | undefined,
+  entry: Pick<SemanticSlotEntry, "category" | "key">,
+): string | undefined {
+  if (!semantic) return undefined
+  const cat = (semantic as Record<string, Record<string, string | undefined> | undefined>)[entry.category]
+  return cat?.[entry.key]
 }

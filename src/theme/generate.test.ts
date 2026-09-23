@@ -37,6 +37,7 @@
  */
 
 import { describe, expect, test } from "bun:test"
+import { desktopThemeSchema, mappingConfigSchema } from "../schema"
 import { buildCss } from "./generate"
 import {
   BRAND_COMPOUNDS,
@@ -122,10 +123,11 @@ function themeWith(assignments: Assignments): Record<string, unknown> {
 
 /** Runs buildCss over the assignments (+ optional mapping/theme overrides). */
 function emit(assignments: Assignments, over: { mapping?: Record<string, unknown> } = {}): string {
-  return buildCss({
-    theme: themeWith(assignments),
-    mapping: over.mapping ?? legacyMapping(),
-  } as unknown as Parameters<typeof buildCss>[0])
+  const rawTheme = themeWith(assignments)
+  const theme = desktopThemeSchema.parse(rawTheme)
+  const rawMapping = over.mapping ?? legacyMapping()
+  const mapping = mappingConfigSchema.parse(rawMapping)
+  return buildCss({ theme, mapping })
 }
 
 function slotById(id: string): SemanticSlotSpec {

@@ -19,7 +19,8 @@ import {
 } from "./presets"
 import { BUILTIN_PRESETS } from "./defaults/presets"
 import { DEFAULT_MAPPING } from "./defaults/mapping"
-import { desktopThemeSchema, type DesktopTheme } from "./schema"
+import { desktopThemeSchema, mappingConfigSchema, type DesktopTheme } from "./schema"
+import { buildAppConfig } from "./config"
 import { buildCss } from "./theme/generate"
 import { userConfigSchema, type UserConfig } from "./bootstrap"
 import { appConfigFilePath, presetsDir } from "./paths"
@@ -82,11 +83,16 @@ describe("normalizePresetId", () => {
     expect(normalizePresetId("__emerald__")).toBe("emerald")
   })
 
-  test("handles edge cases: empty strings or all-special strings", () => {
-    expect(normalizePresetId("")).toBe("")
-    expect(normalizePresetId("   ")).toBe("")
-    expect(normalizePresetId("!@#$%^&*()")).toBe("")
-    expect(normalizePresetId("---")).toBe("")
+  test("supports Unicode characters such as Cyrillic", () => {
+    expect(normalizePresetId("Моя тема")).toBe("моя-тема")
+    expect(normalizePresetId("Розовая Сакура 2026")).toBe("розовая-сакура-2026")
+  })
+
+  test("throws on empty strings or all-special strings", () => {
+    expect(() => normalizePresetId("")).toThrow(PresetError)
+    expect(() => normalizePresetId("   ")).toThrow(PresetError)
+    expect(() => normalizePresetId("!@#$%^&*()")).toThrow(PresetError)
+    expect(() => normalizePresetId("---")).toThrow(PresetError)
   })
 })
 
@@ -161,23 +167,23 @@ describe("formatPresetList", () => {
 
   test("extracts accent from seeds.interactive or seeds.primary", () => {
     const customTheme = createDummyTheme("accent-test", "Accent Test")
-    const themeWithPrimaryOnly = {
+    const themeWithPrimaryOnly = desktopThemeSchema.parse({
       ...customTheme,
       dark: {
         ...customTheme.dark,
         seeds: {
           ...customTheme.dark.seeds,
           primary: "#123456",
-          interactive: "",
+          interactive: "#123456",
         },
       },
-    }
+    })
     const presets: PresetInfo[] = [
       {
         id: "accent-test",
         name: "Accent Test",
         source: "builtin",
-        theme: themeWithPrimaryOnly as unknown as DesktopTheme,
+        theme: themeWithPrimaryOnly,
       },
     ]
 
@@ -735,7 +741,7 @@ describe("exportPreset", () => {
   })
 
   test("exports Theme object and embeds local background images as Base64 Data URIs", async () => {
-    const bgFile = join(testDir, "bg.png")
+    const bgFile = join(testDir, "bg.png").replace(/\\/g, "/")
     await writeFile(bgFile, SAMPLE_1PX_PNG)
 
     const base = createDummyTheme("bg-export-theme", "Bg Export Theme")
@@ -851,15 +857,28 @@ describe("Built-in Presets CSS Generation & Integrity", () => {
     }
   })
 
-  test.each(expectedPresetIds)("built-in preset '%s' passes schema and generates valid CSS", (presetId) => {
+  const presetTokenExpectations: Record<string, string[]> = {
+    nord: ["--orb-text-primary: #2e3440;", "--orb-text-primary: #eceff4;"],
+    dracula: ["--orb-text-primary: #282a36;", "--orb-text-primary: #f8f8f2;"],
+    "tokyo-night": ["--orb-text-primary: #343b58;", "--orb-text-primary: #c0caf5;"],
+    catppuccin: ["--orb-text-primary: #4c4f69;", "--orb-text-primary: #cdd6f4;"],
+    monokai: ["--orb-text-primary: #2d2a2e;", "--orb-text-primary: #fcfcfa;"],
+    cobalt: ["--orb-text-primary: #1f2328;", "--orb-text-primary: #f0f6fc;"],
+    emerald: ["--orb-text-primary: #10231d;", "--orb-text-primary: #e5fff4;"],
+    "pastel-blossom": ["--orb-text-primary: #3f1b2b;", "--orb-text-primary: #fff2f7;"],
+    "anime-pink": ["--common-bg: #fff5f8;", "--common-bg: #20121a;"],
+  }
+
+  test.each(expectedPresetIds)("built-in preset '%s' passes schema and generates valid CSS with semantic tokens", (presetId) => {
     const theme = BUILTIN_PRESETS[presetId]!
     const parseResult = desktopThemeSchema.safeParse(theme)
     expect(parseResult.success, `preset ${presetId} failed schema validation`).toBe(true)
+    if (!parseResult.success) return
 
-    // Build CSS using DEFAULT_MAPPING
+    const mapping = mappingConfigSchema.parse(DEFAULT_MAPPING)
     const css = buildCss({
-      theme,
-      mapping: DEFAULT_MAPPING as any,
+      theme: parseResult.data,
+      mapping,
     })
 
     expect(css).toBeString()
@@ -871,6 +890,12 @@ describe("Built-in Presets CSS Generation & Integrity", () => {
     expect(css).toContain("@media (prefers-color-scheme: dark)")
     expect(css).toContain("--orb-color-ya-telemost-100")
     expect(css).toContain("--orb-surface-brand")
+
+    // Check specific concrete tokens for this preset
+    const expectedTokens = presetTokenExpectations[presetId] ?? []
+    for (const token of expectedTokens) {
+      expect(css).toContain(token)
+    }
   })
 
   test("all presets in presets/*.json match schema and generate valid CSS", () => {
@@ -880,6 +905,7 @@ describe("Built-in Presets CSS Generation & Integrity", () => {
     const files = readdirSync(repoPresetsDir).filter((f) => f.endsWith(".json"))
     expect(files.length).toBeGreaterThanOrEqual(9)
 
+    const mapping = mappingConfigSchema.parse(DEFAULT_MAPPING)
     for (const file of files) {
       const fullPath = join(repoPresetsDir, file)
       const raw = readFileSync(fullPath, "utf8")
@@ -890,10 +916,22 @@ describe("Built-in Presets CSS Generation & Integrity", () => {
 
       const css = buildCss({
         theme: parseResult.data as DesktopTheme,
-        mapping: DEFAULT_MAPPING as any,
+        mapping,
       })
       expect(css).toBeString()
       expect(css.length).toBeGreaterThan(500)
     }
+  })
+
+  test("buildAppConfig correctly resolves CLI overrides and defaults", () => {
+    const config = buildAppConfig(process.cwd(), {
+      port: 9444,
+      watch: false,
+    })
+    expect(config.debugPort).toBe(9444)
+    expect(config.watch).toBe(false)
+    expect(config.debugHost).toBe("127.0.0.1")
+    expect(config.themeFile).toContain("theme.json")
+    expect(config.mappingFile).toContain("mapping.json")
   })
 })

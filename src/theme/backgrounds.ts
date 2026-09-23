@@ -110,7 +110,7 @@ export function normalizeBackgroundItem(item: BackgroundItem): BackgroundPropert
   return item
 }
 
-const MIME_MAP: Readonly<Record<string, string>> = {
+export const MIME_MAP: Readonly<Record<string, string>> = {
   ".png": "image/png",
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
@@ -122,16 +122,83 @@ const MIME_MAP: Readonly<Record<string, string>> = {
   ".ico": "image/x-icon",
 }
 
-function formatUrl(image: string): string {
-  if (
-    image.startsWith("linear-gradient(") ||
-    image.startsWith("radial-gradient(") ||
-    image.startsWith("conic-gradient(") ||
-    image.startsWith("url(")
-  ) {
-    return image
+/**
+ * Detects image MIME type by reading magic header bytes.
+ */
+export function detectImageMimeType(buffer: Buffer): string | undefined {
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return "image/jpeg"
   }
-  return `url("${image}")`
+  if (
+    buffer.length >= 8 &&
+    buffer[0] === 0x89 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x4e &&
+    buffer[3] === 0x47 &&
+    buffer[4] === 0x0d &&
+    buffer[5] === 0x0a &&
+    buffer[6] === 0x1a &&
+    buffer[7] === 0x0a
+  ) {
+    return "image/png"
+  }
+  if (
+    buffer.length >= 6 &&
+    buffer[0] === 0x47 &&
+    buffer[1] === 0x49 &&
+    buffer[2] === 0x46 &&
+    buffer[3] === 0x38 &&
+    (buffer[4] === 0x37 || buffer[4] === 0x39) &&
+    buffer[5] === 0x61
+  ) {
+    return "image/gif"
+  }
+  if (
+    buffer.length >= 12 &&
+    buffer[0] === 0x52 &&
+    buffer[1] === 0x49 &&
+    buffer[2] === 0x46 &&
+    buffer[3] === 0x46 &&
+    buffer[8] === 0x57 &&
+    buffer[9] === 0x45 &&
+    buffer[10] === 0x42 &&
+    buffer[11] === 0x50
+  ) {
+    return "image/webp"
+  }
+  if (
+    buffer.length >= 12 &&
+    buffer[4] === 0x66 &&
+    buffer[5] === 0x74 &&
+    buffer[6] === 0x79 &&
+    buffer[7] === 0x70
+  ) {
+    const brand = buffer.subarray(8, 12).toString("ascii")
+    if (brand === "avif" || brand === "avis") return "image/avif"
+  }
+  const textHead = buffer.subarray(0, 256).toString("utf8").trimStart()
+  if (textHead.startsWith("<?xml") || textHead.startsWith("<svg")) {
+    return "image/svg+xml"
+  }
+  return undefined
+}
+
+function formatUrl(image: string): string {
+  const trimmed = image.trim()
+  if (
+    trimmed.startsWith("linear-gradient(") ||
+    trimmed.startsWith("radial-gradient(") ||
+    trimmed.startsWith("conic-gradient(") ||
+    trimmed.startsWith("var(")
+  ) {
+    return trimmed
+  }
+  if (trimmed.startsWith("url(") && trimmed.endsWith(")")) {
+    return trimmed
+  }
+  // Escape backslashes and double-quotes for defense in depth
+  const escaped = trimmed.replace(/\\/g, "\\\\").replace(/"/g, '\\"')
+  return `url("${escaped}")`
 }
 
 export function renderBackgroundDeclarations(props: BackgroundProperties): Array<readonly [string, string]> {
@@ -178,10 +245,12 @@ export function renderBackgroundDeclarations(props: BackgroundProperties): Array
 export async function resolveBackgroundImage(image: string, baseDir: string): Promise<string> {
   const trimmed = image.trim()
 
-  // Skip web URLs, existing Data URIs, and CSS gradients
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    throw new Error(`remote image URLs are forbidden for security and privacy: ${trimmed}`)
+  }
+
+  // Skip existing Data URIs and CSS gradients
   if (
-    trimmed.startsWith("http://") ||
-    trimmed.startsWith("https://") ||
     trimmed.startsWith("data:") ||
     trimmed.startsWith("linear-gradient(") ||
     trimmed.startsWith("radial-gradient(") ||
@@ -193,11 +262,10 @@ export async function resolveBackgroundImage(image: string, baseDir: string): Pr
   let cleanPath = trimmed
   if (cleanPath.startsWith("url(") && cleanPath.endsWith(")")) {
     cleanPath = cleanPath.slice(4, -1).trim().replace(/^["']|["']$/g, "")
-    if (
-      cleanPath.startsWith("http://") ||
-      cleanPath.startsWith("https://") ||
-      cleanPath.startsWith("data:")
-    ) {
+    if (cleanPath.startsWith("http://") || cleanPath.startsWith("https://")) {
+      throw new Error(`remote image URLs are forbidden for security and privacy: ${cleanPath}`)
+    }
+    if (cleanPath.startsWith("data:")) {
       return cleanPath
     }
   }
@@ -206,8 +274,9 @@ export async function resolveBackgroundImage(image: string, baseDir: string): Pr
 
   try {
     const buffer = await readFile(filePath)
+    const detected = detectImageMimeType(buffer)
     const ext = extname(filePath).toLowerCase()
-    const mime = MIME_MAP[ext] ?? "image/png"
+    const mime = detected ?? MIME_MAP[ext] ?? "image/png"
     return `data:${mime};base64,${buffer.toString("base64")}`
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error)

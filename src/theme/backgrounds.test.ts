@@ -3,7 +3,7 @@ import { mkdir, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { loadTheme } from "../config"
-import { desktopThemeSchema } from "../schema"
+import { desktopThemeSchema, mappingConfigSchema } from "../schema"
 import { buildCss } from "./generate"
 import {
   BACKGROUND_SURFACE_SELECTORS,
@@ -46,19 +46,19 @@ describe("Background Schema & Validation", () => {
     const theme = {
       ...baseTheme(),
       backgrounds: {
-        chat: "https://example.com/shared-chat.png",
+        chat: "assets/shared-chat.png",
       },
       light: {
         seeds: SEEDS,
         backgrounds: {
-          page: "https://example.com/light-page.jpg",
+          page: "assets/light-page.jpg",
           sidebar: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
         },
       },
       dark: {
         seeds: SEEDS,
         backgrounds: {
-          page: "https://example.com/dark-page.jpg",
+          page: "assets/dark-page.jpg",
         },
       },
     }
@@ -74,7 +74,7 @@ describe("Background Schema & Validation", () => {
         seeds: SEEDS,
         backgrounds: {
           chat: {
-            image: "https://example.com/chat.png",
+            image: "assets/chat.png",
             size: "contain",
             position: "center top",
             repeat: "repeat-x",
@@ -91,7 +91,7 @@ describe("Background Schema & Validation", () => {
     expect(parsed.success).toBe(true)
     if (parsed.success) {
       expect(parsed.data.light.backgrounds?.chat).toEqual({
-        image: "https://example.com/chat.png",
+        image: "assets/chat.png",
         size: "contain",
         position: "center top",
         repeat: "repeat-x",
@@ -112,7 +112,7 @@ describe("Background Schema & Validation", () => {
           custom: [
             {
               selector: ".yamb-special-banner",
-              image: "https://example.com/banner.png",
+              image: "assets/banner.png",
               size: "cover",
               position: "top center",
               repeat: "no-repeat",
@@ -233,8 +233,8 @@ describe("Local Image File Resolution & Base64 Encoding", () => {
     const dataUri = await resolveBackgroundImage("sample.png", testDir)
     expect(dataUri).toStartWith("data:image/png;base64,")
 
-    // Passes through web URLs unchanged
-    expect(await resolveBackgroundImage("https://site.com/image.jpg", testDir)).toBe("https://site.com/image.jpg")
+    // Remote web URLs are rejected for security
+    await expect(resolveBackgroundImage("https://site.com/image.jpg", testDir)).rejects.toThrow("remote image URLs are forbidden")
     // Passes through Data URIs unchanged
     expect(await resolveBackgroundImage("data:image/webp;base64,AAAA", testDir)).toBe("data:image/webp;base64,AAAA")
 
@@ -284,48 +284,48 @@ describe("Local Image File Resolution & Base64 Encoding", () => {
 
 describe("CSS Generation with Background Images", () => {
   test("generates background CSS rules for configured surfaces", () => {
-    const theme = {
+    const theme = desktopThemeSchema.parse({
       ...baseTheme(),
       light: {
         seeds: SEEDS,
         backgrounds: {
           chat: {
-            image: "https://example.com/chat-light.png",
+            image: "assets/chat-light.png",
             overlay: "rgba(255, 255, 255, 0.85)",
           },
-          sidebar: "https://example.com/sidebar.png",
+          sidebar: "assets/sidebar.png",
         },
       },
       dark: {
         seeds: SEEDS,
         backgrounds: {
           chat: {
-            image: "https://example.com/chat-dark.png",
+            image: "assets/chat-dark.png",
             overlay: "rgba(32, 18, 26, 0.75)",
           },
         },
       },
-    }
+    })
 
     const css = buildCss({
-      theme: theme as any,
-      mapping: MAPPING_FIXTURE as any,
+      theme,
+      mapping: mappingConfigSchema.parse(MAPPING_FIXTURE),
     })
 
     // Check light chat background
     expect(css).toContain("/* tto: background.chat.light */")
     expect(css).toContain(BACKGROUND_SURFACE_SELECTORS.chat.light.join(", "))
-    expect(css).toContain('linear-gradient(rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.85)), url("https://example.com/chat-light.png")')
+    expect(css).toContain('linear-gradient(rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.85)), url("assets/chat-light.png")')
 
     // Check light sidebar background
     expect(css).toContain("/* tto: background.sidebar.light */")
     expect(css).toContain(BACKGROUND_SURFACE_SELECTORS.sidebar.light.join(", "))
-    expect(css).toContain('url("https://example.com/sidebar.png")')
+    expect(css).toContain('url("assets/sidebar.png")')
 
     // Check dark chat background
     expect(css).toContain("/* tto: background.chat.dark */")
     expect(css).toContain(BACKGROUND_SURFACE_SELECTORS.chat.dark.join(", "))
-    expect(css).toContain('linear-gradient(rgba(32, 18, 26, 0.75), rgba(32, 18, 26, 0.75)), url("https://example.com/chat-dark.png")')
+    expect(css).toContain('linear-gradient(rgba(32, 18, 26, 0.75), rgba(32, 18, 26, 0.75)), url("assets/chat-dark.png")')
 
     // Check theme_auto media block for dark background
     expect(css).toContain("@media (prefers-color-scheme: dark)")
@@ -333,27 +333,27 @@ describe("CSS Generation with Background Images", () => {
   })
 
   test("inherits root-level backgrounds when not specified in variant", () => {
-    const theme = {
+    const theme = desktopThemeSchema.parse({
       ...baseTheme(),
       backgrounds: {
-        page: "https://example.com/global-page.png",
+        page: "assets/global-page.png",
       },
-    }
+    })
 
     const css = buildCss({
-      theme: theme as any,
-      mapping: MAPPING_FIXTURE as any,
+      theme,
+      mapping: mappingConfigSchema.parse(MAPPING_FIXTURE),
     })
 
     expect(css).toContain("/* tto: background.page.light */")
     expect(css).toContain("/* tto: background.page.dark */")
     expect(css).toContain(BACKGROUND_SURFACE_SELECTORS.page.light.join(", "))
     expect(css).toContain(BACKGROUND_SURFACE_SELECTORS.page.dark.join(", "))
-    expect(css).toContain('url("https://example.com/global-page.png")')
+    expect(css).toContain('url("assets/global-page.png")')
   })
 
   test("generates custom background rules verbatim", () => {
-    const theme = {
+    const theme = desktopThemeSchema.parse({
       ...baseTheme(),
       light: {
         seeds: SEEDS,
@@ -361,7 +361,7 @@ describe("CSS Generation with Background Images", () => {
           custom: [
             {
               selector: ".my-custom-header",
-              image: "https://example.com/header.png",
+              image: "assets/header.png",
               size: "100% 80px",
               position: "top left",
               repeat: "repeat-x",
@@ -369,16 +369,16 @@ describe("CSS Generation with Background Images", () => {
           ],
         },
       },
-    }
+    })
 
     const css = buildCss({
-      theme: theme as any,
-      mapping: MAPPING_FIXTURE as any,
+      theme,
+      mapping: mappingConfigSchema.parse(MAPPING_FIXTURE),
     })
 
     expect(css).toContain("/* tto: background.custom.light */")
     expect(css).toContain(".my-custom-header {")
-    expect(css).toContain('background-image: url("https://example.com/header.png");')
+    expect(css).toContain('background-image: url("assets/header.png");')
     expect(css).toContain("background-size: 100% 80px;")
   })
 })

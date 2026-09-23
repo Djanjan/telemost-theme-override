@@ -74,14 +74,19 @@ export function formatPresetList(presets: ReadonlyArray<PresetInfo>, activeId?: 
 
 /**
  * Normalizes a preset name or identifier to a lowercase alphanumeric slug.
+ * Supports Unicode characters (e.g., Cyrillic) and rejects empty slugs.
  */
 export function normalizePresetId(input: string): string {
-  return input
+  const slug = input
     .trim()
     .toLowerCase()
     .replace(/\.json$/i, "")
-    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/[^\p{L}\p{N}]+/gu, "-")
     .replace(/^-+|-+$/g, "")
+  if (!slug) {
+    throw new PresetError(`Preset identifier "${input}" contains no valid alphanumeric or letter characters`)
+  }
+  return slug
 }
 
 /**
@@ -132,30 +137,32 @@ export async function listPresets(options: PresetOptions = {}): Promise<PresetIn
     })
   }
 
-  // 2. Repo presets directory (if running in repo workspace)
-  const repoPresets = options.repoDir ? resolve(options.repoDir, "presets") : resolve(process.cwd(), "presets")
-  if (existsSync(repoPresets)) {
-    try {
-      const entries = await readdir(repoPresets, { withFileTypes: true })
-      for (const entry of entries) {
-        if (entry.isFile() && entry.name.endsWith(".json")) {
-          const filePath = join(repoPresets, entry.name)
-          try {
-            const theme = await readThemeFile(filePath)
-            map.set(theme.id, {
-              id: theme.id,
-              name: theme.name,
-              source: "repo",
-              path: filePath,
-              theme,
-            })
-          } catch {
-            // Ignore invalid repo presets in directory listing
+  // 2. Repo presets directory (if explicitly running in dev workspace)
+  if (options.repoDir) {
+    const repoPresets = resolve(options.repoDir, "presets")
+    if (existsSync(repoPresets)) {
+      try {
+        const entries = await readdir(repoPresets, { withFileTypes: true })
+        for (const entry of entries) {
+          if (entry.isFile() && entry.name.endsWith(".json")) {
+            const filePath = join(repoPresets, entry.name)
+            try {
+              const theme = await readThemeFile(filePath)
+              map.set(theme.id, {
+                id: theme.id,
+                name: theme.name,
+                source: "repo",
+                path: filePath,
+                theme,
+              })
+            } catch {
+              // Ignore invalid repo presets in directory listing
+            }
           }
         }
+      } catch {
+        // Directory read error ignored
       }
-    } catch {
-      // Directory read error ignored
     }
   }
 
@@ -283,49 +290,51 @@ export async function resolvePreset(nameOrPath: string, options: PresetOptions =
     }
   }
 
-  // 3. Repo presets directory
-  const repoPresets = options.repoDir ? resolve(options.repoDir, "presets") : resolve(process.cwd(), "presets")
-  if (existsSync(repoPresets)) {
-    const candidate = join(repoPresets, `${normalizedId}.json`)
-    if (existsSync(candidate)) {
-      const theme = await readThemeFile(candidate)
-      return {
-        theme,
-        id: theme.id,
-        name: theme.name,
-        source: "repo",
-        path: candidate,
-      }
-    }
-
-    try {
-      const entries = await readdir(repoPresets, { withFileTypes: true })
-      for (const entry of entries) {
-        if (entry.isFile() && entry.name.endsWith(".json")) {
-          const filePath = join(repoPresets, entry.name)
-          try {
-            const theme = await readThemeFile(filePath)
-            if (
-              theme.id === trimmed ||
-              theme.id === normalizedId ||
-              theme.name.toLowerCase() === normalizedLower ||
-              normalizePresetId(theme.name) === normalizedId
-            ) {
-              return {
-                theme,
-                id: theme.id,
-                name: theme.name,
-                source: "repo",
-                path: filePath,
-              }
-            }
-          } catch {
-            // ignore unparseable files
-          }
+  // 3. Repo presets directory (if explicitly running in dev workspace)
+  if (options.repoDir) {
+    const repoPresets = resolve(options.repoDir, "presets")
+    if (existsSync(repoPresets)) {
+      const candidate = join(repoPresets, `${normalizedId}.json`)
+      if (existsSync(candidate)) {
+        const theme = await readThemeFile(candidate)
+        return {
+          theme,
+          id: theme.id,
+          name: theme.name,
+          source: "repo",
+          path: candidate,
         }
       }
-    } catch {
-      // ignore readdir error
+
+      try {
+        const entries = await readdir(repoPresets, { withFileTypes: true })
+        for (const entry of entries) {
+          if (entry.isFile() && entry.name.endsWith(".json")) {
+            const filePath = join(repoPresets, entry.name)
+            try {
+              const theme = await readThemeFile(filePath)
+              if (
+                theme.id === trimmed ||
+                theme.id === normalizedId ||
+                theme.name.toLowerCase() === normalizedLower ||
+                normalizePresetId(theme.name) === normalizedId
+              ) {
+                return {
+                  theme,
+                  id: theme.id,
+                  name: theme.name,
+                  source: "repo",
+                  path: filePath,
+                }
+              }
+            } catch {
+              // ignore unparseable files in listing search
+            }
+          }
+        }
+      } catch {
+        // ignore readdir error
+      }
     }
   }
 

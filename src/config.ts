@@ -4,9 +4,9 @@ import {
   SEMANTIC_SLOT_BY_TOKEN,
   SEMANTIC_SLOT_REGISTRY,
   findVerifiedRuleTarget,
+  getSemanticSlotValue,
   scopeClassIsRootScoped,
   slotKindAllowsProperty,
-  type SemanticSlotEntry,
 } from "./theme/semantic-slots"
 import { findTelemost } from "./paths"
 import {
@@ -15,7 +15,6 @@ import {
   mappingConfigSchema,
   type AppConfig,
   type MappingConfig,
-  type SemanticSlots,
 } from "./schema"
 import { resolveThemeBackgrounds } from "./theme/backgrounds"
 import type { z } from "zod"
@@ -62,12 +61,7 @@ function assertNoModeNestingInSemantic(theme: DesktopTheme, source: string): voi
   }
 }
 
-/** Reads the semantic value a slot carries in one variant's `semantic` object. */
-function semanticSlotValue(semantic: SemanticSlots | undefined, slot: SemanticSlotEntry): string | undefined {
-  if (!semantic) return undefined
-  const categories = semantic as unknown as Record<string, Record<string, string> | undefined>
-  return categories[slot.category]?.[slot.key]
-}
+// Using getSemanticSlotValue from ./theme/semantic-slots
 
 /**
  * Cross-validates rule-only semantic bindings against the registry and the
@@ -140,8 +134,8 @@ function validateSemanticBindings(mapping: MappingConfig, source: string, theme:
     const slot = SEMANTIC_SLOT_REGISTRY.get(binding.slot)!
     const target = findVerifiedRuleTarget(binding.selector, binding.property)!
     const themeData = requireTheme()
-    const lightValue = semanticSlotValue(themeData.light.semantic, slot)
-    const darkValue = semanticSlotValue(themeData.dark.semantic, slot)
+    const lightValue = getSemanticSlotValue(themeData.light.semantic, slot)
+    const darkValue = getSemanticSlotValue(themeData.dark.semantic, slot)
     const path = `semantic.${slot.category}.${slot.key}`
     switch (target.mode) {
       case "light":

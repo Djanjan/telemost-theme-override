@@ -20,6 +20,8 @@ import { buildCss } from "./theme/generate"
 import { CdpSession, waitForPageTarget, type CdpTarget } from "./cdp/client"
 import { applyToLiveDocument, buildAgentSource, verify, waitForAppStyles } from "./inject"
 import { isDebuggerUp, launchTelemost } from "./launcher"
+import { existsSync } from "node:fs"
+import { readFile } from "node:fs/promises"
 import {
   exportPreset,
   formatPresetList,
@@ -29,7 +31,7 @@ import {
   savePreset,
   setActivePreset,
 } from "./presets"
-import { themeFilePath } from "./paths"
+import { appConfigFilePath, themeFilePath } from "./paths"
 
 const HELP = `telemost-start — Telemost with a custom theme
 
@@ -114,7 +116,13 @@ async function run(once: boolean, preset?: string): Promise<void> {
 
   if (boot.createdTheme || boot.createdConfig) {
     console.log(`Created configuration in ${boot.directory}`)
-    if (boot.createdTheme) console.log(`  theme.json   colors — edit to taste`)
+    if (boot.createdTheme) {
+      if (boot.activePresetName) {
+        console.log(`  theme.json   colors (active preset "${boot.activePresetName}" overrides theme.json; switch back: --set-preset custom)`)
+      } else {
+        console.log(`  theme.json   colors — edit to taste`)
+      }
+    }
     if (boot.createdConfig) console.log(`  config.json  detected ${boot.config.telemostExe}`)
     console.log(`  presets/     custom presets directory`)
     console.log("")
@@ -123,8 +131,11 @@ async function run(once: boolean, preset?: string): Promise<void> {
   const appConfig = toAppConfig(boot.config, boot.themePath)
   const css = buildCss({ theme: boot.theme, mapping: boot.mapping })
 
-  const presetLabel = boot.activePresetName ? ` (preset: ${boot.activePresetName})` : ""
-  console.log(`theme    : ${boot.theme.name} (${boot.theme.id})${presetLabel}`)
+  if (boot.activePresetName) {
+    console.log(`theme    : ${boot.theme.name} (${boot.theme.id}) [active preset: "${boot.activePresetName}" — theme.json is ignored; switch back: --set-preset custom]`)
+  } else {
+    console.log(`theme    : ${boot.theme.name} (${boot.theme.id})`)
+  }
 
   const launch = await launchTelemost(appConfig, {
     onRestart: () =>
@@ -236,8 +247,19 @@ async function main(): Promise<void> {
 
   if (values["list-presets"] || values.presets) {
     const presets = await listPresets()
-    const boot = await bootstrap().catch(() => null)
-    const active = boot?.activePresetName ?? boot?.theme.id
+    let active: string | undefined
+    try {
+      const configPath = appConfigFilePath()
+      if (existsSync(configPath)) {
+        const raw = await readFile(configPath, "utf8")
+        const parsed = JSON.parse(raw) as { preset?: unknown }
+        if (typeof parsed?.preset === "string" && parsed.preset.trim()) {
+          active = parsed.preset.trim()
+        }
+      }
+    } catch {
+      // ignore config read errors in preset listing
+    }
     console.log(formatPresetList(presets, active))
     return
   }

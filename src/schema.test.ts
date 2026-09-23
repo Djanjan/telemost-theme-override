@@ -701,3 +701,42 @@ describe("loadMapping validates semantic bindings with slot-id error paths", () 
     await expect(loadMappingFrom(mapping)).rejects.toBeInstanceOf(ConfigError)
   })
 })
+
+describe("background image schema & injection defense", () => {
+  test("accepts valid base64 data URIs and gradients", () => {
+    const dataUri = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+    expect(schemaNs.backgroundImageValueSchema.safeParse(dataUri).success).toBe(true)
+
+    const gradient = "linear-gradient(rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.8))"
+    expect(schemaNs.backgroundImageValueSchema.safeParse(gradient).success).toBe(true)
+
+    const localPath = "assets/anime/chat-anime-girl.jpg"
+    expect(schemaNs.backgroundImageValueSchema.safeParse(localPath).success).toBe(true)
+  })
+
+  test("rejects CSS injection payloads in image field", () => {
+    const payload1 = 'https://evil.com/x.png"); color: red; /*'
+    expect(schemaNs.backgroundImageValueSchema.safeParse(payload1).success).toBe(false)
+
+    const payload2 = 'linear-gradient(red, blue); background: url("https://evil.com");'
+    expect(schemaNs.backgroundImageValueSchema.safeParse(payload2).success).toBe(false)
+
+    const payload3 = 'data:image/png;base64,xxx"); color: red; /*'
+    expect(schemaNs.backgroundImageValueSchema.safeParse(payload3).success).toBe(false)
+
+    const remoteUrl = "https://example.com/remote-wallpaper.png"
+    expect(schemaNs.backgroundImageValueSchema.safeParse(remoteUrl).success).toBe(false)
+  })
+
+  test("rejects CSS keylogger and malicious custom selectors", () => {
+    expect(schemaNs.customBackgroundSelectorSchema.safeParse('input[value$="a"]').success).toBe(false)
+    expect(schemaNs.customBackgroundSelectorSchema.safeParse('textarea[name="message"]').success).toBe(false)
+    expect(schemaNs.customBackgroundSelectorSchema.safeParse('.sidebar; color: red').success).toBe(false)
+    expect(schemaNs.customBackgroundSelectorSchema.safeParse('.sidebar { opacity: 0 }').success).toBe(false)
+    expect(schemaNs.customBackgroundSelectorSchema.safeParse('.sidebar /* comment */').success).toBe(false)
+
+    // Valid selectors
+    expect(schemaNs.customBackgroundSelectorSchema.safeParse('.theme_dark:root .yamb-compose, :root.theme_dark .yamb-compose').success).toBe(true)
+    expect(schemaNs.customBackgroundSelectorSchema.safeParse(':root #root > .yamb-main-layout').success).toBe(true)
+  })
+})

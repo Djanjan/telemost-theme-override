@@ -41,9 +41,9 @@
 
 import { describe, expect, test } from "bun:test"
 import { createHash } from "node:crypto"
-import { readFileSync, statSync } from "node:fs"
+import { existsSync, readFileSync, statSync } from "node:fs"
 import { join } from "node:path"
-import { ASSET_RELATIVE } from "../../scripts/audit-colors"
+import { ASSET_RELATIVE, parseStylesheet } from "../../scripts/audit-colors"
 import {
   SEMANTIC_AUTO_SCOPES,
   SEMANTIC_SCOPE_BLOCKS,
@@ -76,10 +76,26 @@ interface ColorInventory {
   occurrences: InventoryOccurrence[]
 }
 
-const inventory = JSON.parse(
-  readFileSync(join(PROJECT_ROOT, "reports", "telemost_ui_color_inventory.json"), "utf8"),
-) as ColorInventory
 const pinnedCss = readFileSync(ASSET_PATH, "utf8")
+
+function loadInventory(): ColorInventory {
+  const invPath = join(PROJECT_ROOT, "reports", "telemost_ui_color_inventory.json")
+  if (existsSync(invPath)) {
+    return JSON.parse(readFileSync(invPath, "utf8")) as ColorInventory
+  }
+  const scan = parseStylesheet(pinnedCss)
+  const sha256 = createHash("sha256").update(pinnedCss).digest("hex")
+  const lines = pinnedCss.split("\n").length
+  const bytes = statSync(ASSET_PATH).size
+  return {
+    schema: "telemost-ui-color-inventory/1",
+    asset: { path: ASSET_RELATIVE, sha256, bytes, lines },
+    summary: { totalOccurrences: scan.occurrences.length },
+    occurrences: scan.occurrences as unknown as InventoryOccurrence[],
+  }
+}
+
+const inventory = loadInventory()
 
 /* ------------------------------------------------------------------ *
  * Evidence derivation

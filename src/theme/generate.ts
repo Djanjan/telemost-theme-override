@@ -4,6 +4,7 @@ import { SEMANTIC_CATEGORIES, type BrandRampConfig, type MappingConfig, type Ram
 import type { desktopThemeSchema } from "../schema"
 import {
   deriveRuleMode,
+  getSemanticSlotValue,
   SEMANTIC_AUTO_SCOPES,
   SEMANTIC_AUTO_SCOPE_GROUPS,
   SEMANTIC_SCOPE_BLOCKS,
@@ -251,14 +252,6 @@ function compareBytes(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0
 }
 
-/** Reads the semantic value one slot carries in one theme variant. */
-function semanticValueOf(variant: DesktopTheme["light"], entry: SemanticSlotEntry): string | undefined {
-  const semantic = variant.semantic
-  if (!semantic) return undefined
-  const categories = semantic as unknown as Record<string, Record<string, string> | undefined>
-  return categories[entry.category]?.[entry.key]
-}
-
 interface SemanticAssignment {
   readonly entry: SemanticSlotEntry
   readonly value: string
@@ -274,7 +267,7 @@ function collectSemanticAssignments(theme: DesktopTheme, mode: ThemeMode): Seman
   const resolved = new Map<string, string>()
   const assignments: SemanticAssignment[] = []
   for (const entry of SEMANTIC_SLOT_REGISTRY.values()) {
-    const value = semanticValueOf(theme[mode], entry)
+    const value = getSemanticSlotValue(theme[mode].semantic, entry)
     if (value === undefined) continue
     const prior = resolved.get(entry.token)
     if (prior !== undefined) {
@@ -393,7 +386,7 @@ function buildRuleBindingSections(theme: DesktopTheme, mapping: MappingConfig): 
     const entry = SEMANTIC_SLOT_REGISTRY.get(binding.slot)
     if (!entry) continue
     const mode = deriveRuleMode(binding.selector)
-    const value = semanticValueOf(mode === "dark" ? theme.dark : theme.light, entry)
+    const value = getSemanticSlotValue((mode === "dark" ? theme.dark : theme.light).semantic, entry)
     if (value === undefined) continue
     rows.push({ mode, entry, selector: binding.selector, property: binding.property, value })
   }
