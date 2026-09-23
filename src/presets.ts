@@ -4,7 +4,8 @@ import { basename, dirname, extname, isAbsolute, join, resolve } from "node:path
 import { z } from "zod"
 
 import { BUILTIN_PRESETS } from "./defaults/presets"
-import { appConfigFilePath, presetsDir } from "./paths"
+import { appConfigFilePath, presetsDir, themeFilePath } from "./paths"
+import { DEFAULT_THEME } from "./defaults/theme"
 import { desktopThemeSchema, type DesktopTheme } from "./schema"
 import { resolveThemeBackgrounds } from "./theme/backgrounds"
 import { userConfigSchema, type UserConfig } from "./bootstrap"
@@ -39,6 +40,16 @@ export interface PresetOptions {
   readonly repoDir?: string
 }
 
+export interface PresetFileError {
+  readonly path: string
+  readonly message: string
+}
+
+export interface PresetListResult extends Array<PresetInfo> {
+  readonly presets: PresetInfo[]
+  readonly errors: PresetFileError[]
+}
+
 function describeIssues(issues: ReadonlyArray<z.core.$ZodIssue>): string {
   return issues.map((issue) => `  - ${issue.path.join(".") || "<root>"}: ${issue.message}`).join("\n")
 }
@@ -46,7 +57,19 @@ function describeIssues(issues: ReadonlyArray<z.core.$ZodIssue>): string {
 /**
  * Formats a list of presets into a human-readable table.
  */
-export function formatPresetList(presets: ReadonlyArray<PresetInfo>, activeId?: string): string {
+export function formatPresetList(
+  presetsOrResult: ReadonlyArray<PresetInfo> | PresetListResult,
+  activeId?: string,
+): string {
+  const presets =
+    Array.isArray(presetsOrResult) && "presets" in presetsOrResult
+      ? (presetsOrResult as PresetListResult).presets
+      : presetsOrResult
+  const errors =
+    Array.isArray(presetsOrResult) && "errors" in presetsOrResult
+      ? (presetsOrResult as PresetListResult).errors
+      : []
+
   const lines: string[] = []
   lines.push("Available theme presets:")
   lines.push("")
@@ -63,6 +86,13 @@ export function formatPresetList(presets: ReadonlyArray<PresetInfo>, activeId?: 
     lines.push(`${marker}${id} ${name} ${source} ${accent}`)
   }
   lines.push("")
+  if (errors.length > 0) {
+    lines.push("Errors loading preset files:")
+    for (const err of errors) {
+      lines.push(`  ! ${err.path}: ${err.message}`)
+    }
+    lines.push("")
+  }
   lines.push("Usage:")
   lines.push("  --preset <id|path>            launch with specified preset")
   lines.push("  --set-preset <id>             set default preset in config.json")
@@ -124,8 +154,9 @@ export async function readThemeFile(path: string): Promise<DesktopTheme> {
  * Lists all available presets across built-in defaults, user presets folder,
  * and repo presets folder (if present).
  */
-export async function listPresets(options: PresetOptions = {}): Promise<PresetInfo[]> {
+export async function listPresets(options: PresetOptions = {}): Promise<PresetListResult> {
   const map = new Map<string, PresetInfo>()
+  const errors: PresetFileError[] = []
 
   // 1. Built-in presets
   for (const [id, theme] of Object.entries(BUILTIN_PRESETS)) {
@@ -155,13 +186,19 @@ export async function listPresets(options: PresetOptions = {}): Promise<PresetIn
                 path: filePath,
                 theme,
               })
-            } catch {
-              // Ignore invalid repo presets in directory listing
+            } catch (err) {
+              errors.push({
+                path: filePath,
+                message: err instanceof Error ? err.message : String(err),
+              })
             }
           }
         }
-      } catch {
-        // Directory read error ignored
+      } catch (err) {
+        errors.push({
+          path: repoPresets,
+          message: err instanceof Error ? err.message : String(err),
+        })
       }
     }
   }
@@ -184,17 +221,27 @@ export async function listPresets(options: PresetOptions = {}): Promise<PresetIn
               path: filePath,
               theme,
             })
-          } catch {
-            // Ignore invalid user presets in listing
+          } catch (err) {
+            errors.push({
+              path: filePath,
+              message: err instanceof Error ? err.message : String(err),
+            })
           }
         }
       }
-    } catch {
-      // Directory read error ignored
+    } catch (err) {
+      errors.push({
+        path: userDir,
+        message: err instanceof Error ? err.message : String(err),
+      })
     }
   }
 
-  return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name))
+  const sorted = Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name))
+  return Object.assign(sorted, {
+    presets: sorted,
+    errors,
+  }) as PresetListResult
 }
 
 /**
@@ -237,6 +284,8 @@ export async function resolvePreset(nameOrPath: string, options: PresetOptions =
   const normalizedId = normalizePresetId(trimmed)
   const normalizedLower = trimmed.toLowerCase()
 
+  const loadErrors: PresetFileError[] = []
+
   // 2. User presets directory
   const userDir = presetsDir(options.env)
   if (existsSync(userDir)) {
@@ -247,13 +296,20 @@ export async function resolvePreset(nameOrPath: string, options: PresetOptions =
     ]
     for (const candidate of candidates) {
       if (existsSync(candidate)) {
-        const theme = await readThemeFile(candidate)
-        return {
-          theme,
-          id: theme.id,
-          name: theme.name,
-          source: "user",
-          path: candidate,
+        try {
+          const theme = await readThemeFile(candidate)
+          return {
+            theme,
+            id: theme.id,
+            name: theme.name,
+            source: "user",
+            path: candidate,
+          }
+        } catch (err) {
+          loadErrors.push({
+            path: candidate,
+            message: err instanceof Error ? err.message : String(err),
+          })
         }
       }
     }
@@ -280,13 +336,19 @@ export async function resolvePreset(nameOrPath: string, options: PresetOptions =
                 path: filePath,
               }
             }
-          } catch {
-            // ignore unparseable files
+          } catch (err) {
+            loadErrors.push({
+              path: filePath,
+              message: err instanceof Error ? err.message : String(err),
+            })
           }
         }
       }
-    } catch {
-      // ignore readdir error
+    } catch (err) {
+      loadErrors.push({
+        path: userDir,
+        message: err instanceof Error ? err.message : String(err),
+      })
     }
   }
 
@@ -296,13 +358,20 @@ export async function resolvePreset(nameOrPath: string, options: PresetOptions =
     if (existsSync(repoPresets)) {
       const candidate = join(repoPresets, `${normalizedId}.json`)
       if (existsSync(candidate)) {
-        const theme = await readThemeFile(candidate)
-        return {
-          theme,
-          id: theme.id,
-          name: theme.name,
-          source: "repo",
-          path: candidate,
+        try {
+          const theme = await readThemeFile(candidate)
+          return {
+            theme,
+            id: theme.id,
+            name: theme.name,
+            source: "repo",
+            path: candidate,
+          }
+        } catch (err) {
+          loadErrors.push({
+            path: candidate,
+            message: err instanceof Error ? err.message : String(err),
+          })
         }
       }
 
@@ -327,13 +396,19 @@ export async function resolvePreset(nameOrPath: string, options: PresetOptions =
                   path: filePath,
                 }
               }
-            } catch {
-              // ignore unparseable files in listing search
+            } catch (err) {
+              loadErrors.push({
+                path: filePath,
+                message: err instanceof Error ? err.message : String(err),
+              })
             }
           }
         }
-      } catch {
-        // ignore readdir error
+      } catch (err) {
+        loadErrors.push({
+          path: repoPresets,
+          message: err instanceof Error ? err.message : String(err),
+        })
       }
     }
   }
@@ -358,13 +433,23 @@ export async function resolvePreset(nameOrPath: string, options: PresetOptions =
     }
   }
 
-  // 5. Not found — format error with available presets
+  // 5. Not found — format error with available presets and load errors
   const allPresets = await listPresets(options)
-  const availableList = allPresets.map((p) => `  - ${p.id.padEnd(20)} (${p.name}) [${p.source}]`).join("\n")
+  const availableList = allPresets.presets.map((p) => `  - ${p.id.padEnd(20)} (${p.name}) [${p.source}]`).join("\n")
+
+  const combinedErrors = [...loadErrors, ...allPresets.errors]
+  const uniqueErrors = Array.from(
+    new Map(combinedErrors.map((e) => [`${e.path}:${e.message}`, e])).values(),
+  )
+  const failedSection =
+    uniqueErrors.length > 0
+      ? `\n\nFailed to load the following preset files:\n` +
+        uniqueErrors.map((e) => `  - ${e.path}: ${e.message}`).join("\n")
+      : ""
 
   throw new PresetError(
-    `Preset "${trimmed}" not found.\n\nAvailable presets:\n${availableList || "  (none)"}\n\n` +
-      `You can also pass a direct path to a theme JSON file.`,
+    `Preset "${trimmed}" not found.\n\nAvailable presets:\n${availableList || "  (none)"}` +
+      `${failedSection}\n\nYou can also pass a direct path to a theme JSON file.`,
   )
 }
 
@@ -481,7 +566,8 @@ export async function setActivePreset(
   presetName: string,
   options: PresetOptions = {},
 ): Promise<{ configPath: string; preset: string; theme: DesktopTheme }> {
-  const resolved = await resolvePreset(presetName, options)
+  const trimmed = presetName.trim()
+  const isCustom = trimmed.toLowerCase() === "custom" || trimmed.length === 0
   const configPath = appConfigFilePath(options.env)
 
   let userConfig: UserConfig
@@ -491,6 +577,34 @@ export async function setActivePreset(
   } else {
     throw new PresetError(`config file not found at ${configPath}. Run telemost-start first to initialize.`)
   }
+
+  if (isCustom) {
+    const updatedConfig: UserConfig = {
+      ...userConfig,
+    }
+    delete updatedConfig.preset
+    await writeFile(configPath, `${JSON.stringify(updatedConfig, null, 2)}\n`, "utf8")
+
+    const customThemePath = themeFilePath(options.env)
+    let theme: DesktopTheme
+    if (existsSync(customThemePath)) {
+      try {
+        theme = await readThemeFile(customThemePath)
+      } catch {
+        theme = desktopThemeSchema.parse(DEFAULT_THEME)
+      }
+    } else {
+      theme = desktopThemeSchema.parse(DEFAULT_THEME)
+    }
+
+    return {
+      configPath,
+      preset: "custom",
+      theme,
+    }
+  }
+
+  const resolved = await resolvePreset(presetName, options)
 
   const updatedConfig: UserConfig = {
     ...userConfig,

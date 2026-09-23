@@ -22,6 +22,9 @@ const SEEDS = {
   interactive: "#424242",
 } as const
 
+const DUMMY_DATA_URI =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+
 const MAPPING_FIXTURE = {
   description: "test mapping",
   ramps: [{ family: "ya-telemost", seed: "interactive", alphaSource: 700, emitLightTrio: true }],
@@ -184,10 +187,10 @@ describe("Surface Aliases & Helpers", () => {
 
   test("renders background declarations with defaults", () => {
     const decls = renderBackgroundDeclarations({
-      image: "https://example.com/bg.png",
+      image: DUMMY_DATA_URI,
     })
     const map = Object.fromEntries(decls)
-    expect(map["background-image"]).toBe('url("https://example.com/bg.png")')
+    expect(map["background-image"]).toBe(`url("${DUMMY_DATA_URI}")`)
     expect(map["background-size"]).toBe("cover")
     expect(map["background-position"]).toBe("center")
     expect(map["background-repeat"]).toBe("no-repeat")
@@ -196,7 +199,7 @@ describe("Surface Aliases & Helpers", () => {
 
   test("renders background declarations with overlay scrim", () => {
     const decls = renderBackgroundDeclarations({
-      image: "https://example.com/bg.png",
+      image: DUMMY_DATA_URI,
       overlay: "rgba(32, 18, 26, 0.75)",
       size: "contain",
       position: "top right",
@@ -207,7 +210,7 @@ describe("Surface Aliases & Helpers", () => {
     })
     const map = Object.fromEntries(decls)
     expect(map["background-image"]).toBe(
-      'linear-gradient(rgba(32, 18, 26, 0.75), rgba(32, 18, 26, 0.75)), url("https://example.com/bg.png")',
+      `linear-gradient(rgba(32, 18, 26, 0.75), rgba(32, 18, 26, 0.75)), url("${DUMMY_DATA_URI}")`,
     )
     expect(map["background-size"]).toBe("contain")
     expect(map["background-position"]).toBe("top right")
@@ -215,6 +218,11 @@ describe("Surface Aliases & Helpers", () => {
     expect(map["background-attachment"]).toBe("fixed")
     expect(map["background-blend-mode"]).toBe("overlay")
     expect(map["opacity"]).toBe("0.9")
+  })
+
+  test("asserts that unresolved paths or invalid URLs cannot reach CSS generation", () => {
+    expect(() => renderBackgroundDeclarations({ image: "unresolved-path.png" })).toThrow(/assertion failed/)
+    expect(() => renderBackgroundDeclarations({ image: "https://evil.com/bg.png" })).toThrow(/assertion failed/)
   })
 })
 
@@ -290,17 +298,17 @@ describe("CSS Generation with Background Images", () => {
         seeds: SEEDS,
         backgrounds: {
           chat: {
-            image: "assets/chat-light.png",
+            image: DUMMY_DATA_URI,
             overlay: "rgba(255, 255, 255, 0.85)",
           },
-          sidebar: "assets/sidebar.png",
+          sidebar: DUMMY_DATA_URI,
         },
       },
       dark: {
         seeds: SEEDS,
         backgrounds: {
           chat: {
-            image: "assets/chat-dark.png",
+            image: DUMMY_DATA_URI,
             overlay: "rgba(32, 18, 26, 0.75)",
           },
         },
@@ -315,17 +323,17 @@ describe("CSS Generation with Background Images", () => {
     // Check light chat background
     expect(css).toContain("/* tto: background.chat.light */")
     expect(css).toContain(BACKGROUND_SURFACE_SELECTORS.chat.light.join(", "))
-    expect(css).toContain('linear-gradient(rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.85)), url("assets/chat-light.png")')
+    expect(css).toContain(`linear-gradient(rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.85)), url("${DUMMY_DATA_URI}")`)
 
     // Check light sidebar background
     expect(css).toContain("/* tto: background.sidebar.light */")
     expect(css).toContain(BACKGROUND_SURFACE_SELECTORS.sidebar.light.join(", "))
-    expect(css).toContain('url("assets/sidebar.png")')
+    expect(css).toContain(`url("${DUMMY_DATA_URI}")`)
 
     // Check dark chat background
     expect(css).toContain("/* tto: background.chat.dark */")
     expect(css).toContain(BACKGROUND_SURFACE_SELECTORS.chat.dark.join(", "))
-    expect(css).toContain('linear-gradient(rgba(32, 18, 26, 0.75), rgba(32, 18, 26, 0.75)), url("assets/chat-dark.png")')
+    expect(css).toContain(`linear-gradient(rgba(32, 18, 26, 0.75), rgba(32, 18, 26, 0.75)), url("${DUMMY_DATA_URI}")`)
 
     // Check theme_auto media block for dark background
     expect(css).toContain("@media (prefers-color-scheme: dark)")
@@ -336,7 +344,7 @@ describe("CSS Generation with Background Images", () => {
     const theme = desktopThemeSchema.parse({
       ...baseTheme(),
       backgrounds: {
-        page: "assets/global-page.png",
+        page: DUMMY_DATA_URI,
       },
     })
 
@@ -349,7 +357,7 @@ describe("CSS Generation with Background Images", () => {
     expect(css).toContain("/* tto: background.page.dark */")
     expect(css).toContain(BACKGROUND_SURFACE_SELECTORS.page.light.join(", "))
     expect(css).toContain(BACKGROUND_SURFACE_SELECTORS.page.dark.join(", "))
-    expect(css).toContain('url("assets/global-page.png")')
+    expect(css).toContain(`url("${DUMMY_DATA_URI}")`)
   })
 
   test("generates custom background rules verbatim", () => {
@@ -361,7 +369,7 @@ describe("CSS Generation with Background Images", () => {
           custom: [
             {
               selector: ".my-custom-header",
-              image: "assets/header.png",
+              image: DUMMY_DATA_URI,
               size: "100% 80px",
               position: "top left",
               repeat: "repeat-x",
@@ -378,7 +386,7 @@ describe("CSS Generation with Background Images", () => {
 
     expect(css).toContain("/* tto: background.custom.light */")
     expect(css).toContain(".my-custom-header {")
-    expect(css).toContain('background-image: url("assets/header.png");')
+    expect(css).toContain(`background-image: url("${DUMMY_DATA_URI}");`)
     expect(css).toContain("background-size: 100% 80px;")
   })
 })

@@ -374,7 +374,7 @@ describe("listPresets", () => {
     expect(nord?.name).toBe("Custom User Nord Overridden")
   })
 
-  test("gracefully ignores corrupt JSON and invalid theme files in user and repo directories", async () => {
+  test("collects corrupt JSON and invalid theme files in list errors", async () => {
     const userDir = presetsDir({ LOCALAPPDATA: userAppData })
     const repoPresetsDir = join(customRepoDir, "presets")
     await mkdir(userDir, { recursive: true })
@@ -384,7 +384,6 @@ describe("listPresets", () => {
     await writeFile(join(userDir, "corrupt.json"), "{ broken json", "utf8")
     await writeFile(join(repoPresetsDir, "invalid.json"), JSON.stringify({ bad: true }), "utf8")
 
-    // Should not throw and should list valid presets
     const list = await listPresets({
       env: { LOCALAPPDATA: userAppData },
       repoDir: customRepoDir,
@@ -393,6 +392,13 @@ describe("listPresets", () => {
     expect(list.length).toBeGreaterThanOrEqual(9)
     expect(list.find((p) => p.id === "corrupt")).toBeUndefined()
     expect(list.find((p) => p.id === "invalid")).toBeUndefined()
+    expect(list.errors.length).toBeGreaterThanOrEqual(2)
+    expect(list.errors.some((e) => e.path.includes("corrupt.json"))).toBe(true)
+    expect(list.errors.some((e) => e.path.includes("invalid.json"))).toBe(true)
+
+    const formatted = formatPresetList(list)
+    expect(formatted).toContain("Errors loading preset files:")
+    expect(formatted).toContain("corrupt.json")
   })
 })
 
@@ -580,6 +586,16 @@ describe("resolvePreset", () => {
       expect(msg).toContain("tokyo-night")
       expect(msg).toContain("You can also pass a direct path to a theme JSON file.")
     }
+  })
+
+  test("reports unreadable preset files in PresetError when preset is not found", async () => {
+    const userDir = presetsDir({ LOCALAPPDATA: userAppData })
+    await mkdir(userDir, { recursive: true })
+    await writeFile(join(userDir, "bad-syntax.json"), "{ invalid json", "utf8")
+
+    await expect(
+      resolvePreset("nonexistent-theme", { env: { LOCALAPPDATA: userAppData } }),
+    ).rejects.toThrow(/Failed to load the following preset files:\n  - .*bad-syntax\.json/)
   })
 })
 
@@ -829,6 +845,20 @@ describe("setActivePreset", () => {
     await expect(
       setActivePreset("invalid-ghost-preset", { env: { LOCALAPPDATA: userAppData } }),
     ).rejects.toThrow(PresetError)
+  })
+
+  test("clears preset when passing 'custom' or empty string", async () => {
+    const configPath = appConfigFilePath({ LOCALAPPDATA: userAppData })
+    await mkdir(join(userAppData, "TelemostThemeOverride"), { recursive: true })
+    await writeFile(configPath, JSON.stringify({ telemostExe: "dummy.exe", preset: "nord" }), "utf8")
+
+    const result = await setActivePreset("custom", { env: { LOCALAPPDATA: userAppData } })
+    expect(result.preset).toBe("custom")
+    expect(result.theme).toBeDefined()
+
+    const raw = await readFile(configPath, "utf8")
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    expect(parsed.preset).toBeUndefined()
   })
 })
 

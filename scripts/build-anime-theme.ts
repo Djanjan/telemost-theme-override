@@ -21,6 +21,48 @@ async function main(): Promise<void> {
   const theme: DesktopTheme = {
     name: "Anime Waifu Dream & Sakura Pink",
     id: "anime-pink",
+    backgrounds: {
+      chat: {
+        image: chatDataUri,
+        size: "cover",
+        position: "center",
+        repeat: "no-repeat",
+        attachment: "fixed",
+      },
+      sidebar: {
+        image: sidebarDataUri,
+        size: "cover",
+        position: "center",
+        repeat: "no-repeat",
+      },
+      home: {
+        image: homeDataUri,
+        size: "cover",
+        position: "center",
+        repeat: "no-repeat",
+      },
+      call: {
+        image: callDataUri,
+        size: "cover",
+        position: "center",
+        repeat: "no-repeat",
+      },
+      page: {
+        image: pageDataUri,
+        size: "auto",
+        position: "center",
+        repeat: "repeat",
+      },
+      custom: [
+        {
+          selector: ":root .yamb-compose",
+          image: peekingChibiDataUri,
+          size: "70px auto",
+          position: "bottom right",
+          repeat: "no-repeat",
+        },
+      ],
+    },
     light: {
       seeds: {
         neutral: "#b89da8",
@@ -202,51 +244,11 @@ async function main(): Promise<void> {
         },
       },
       backgrounds: {
-        chat: {
-          image: chatDataUri,
-          size: "cover",
-          position: "center",
-          repeat: "no-repeat",
-          attachment: "fixed",
-          overlay: "rgba(255, 245, 248, 0.65)",
-        },
-        sidebar: {
-          image: sidebarDataUri,
-          size: "cover",
-          position: "center",
-          repeat: "no-repeat",
-          overlay: "rgba(253, 237, 243, 0.82)",
-        },
-        home: {
-          image: homeDataUri,
-          size: "cover",
-          position: "center",
-          repeat: "no-repeat",
-          overlay: "rgba(255, 245, 248, 0.65)",
-        },
-        call: {
-          image: callDataUri,
-          size: "cover",
-          position: "center",
-          repeat: "no-repeat",
-          overlay: "rgba(255, 245, 248, 0.60)",
-        },
-        page: {
-          image: pageDataUri,
-          size: "auto",
-          position: "center",
-          repeat: "repeat",
-          overlay: "rgba(255, 245, 248, 0.85)",
-        },
-        custom: [
-          {
-            selector: ":root .yamb-compose",
-            image: peekingChibiDataUri,
-            size: "70px auto",
-            position: "bottom right",
-            repeat: "no-repeat",
-          },
-        ],
+        chat: { overlay: "rgba(255, 245, 248, 0.65)" },
+        sidebar: { overlay: "rgba(253, 237, 243, 0.82)" },
+        home: { overlay: "rgba(255, 245, 248, 0.65)" },
+        call: { overlay: "rgba(255, 245, 248, 0.60)" },
+        page: { overlay: "rgba(255, 245, 248, 0.85)" },
       },
     },
     dark: {
@@ -430,51 +432,11 @@ async function main(): Promise<void> {
         },
       },
       backgrounds: {
-        chat: {
-          image: chatDataUri,
-          size: "cover",
-          position: "center",
-          repeat: "no-repeat",
-          attachment: "fixed",
-          overlay: "rgba(32, 18, 26, 0.65)",
-        },
-        sidebar: {
-          image: sidebarDataUri,
-          size: "cover",
-          position: "center",
-          repeat: "no-repeat",
-          overlay: "rgba(41, 24, 35, 0.82)",
-        },
-        home: {
-          image: homeDataUri,
-          size: "cover",
-          position: "center",
-          repeat: "no-repeat",
-          overlay: "rgba(32, 18, 26, 0.65)",
-        },
-        call: {
-          image: callDataUri,
-          size: "cover",
-          position: "center",
-          repeat: "no-repeat",
-          overlay: "rgba(32, 18, 26, 0.60)",
-        },
-        page: {
-          image: pageDataUri,
-          size: "auto",
-          position: "center",
-          repeat: "repeat",
-          overlay: "rgba(32, 18, 26, 0.85)",
-        },
-        custom: [
-          {
-            selector: ".theme_dark:root .yamb-compose, :root.theme_dark .yamb-compose",
-            image: peekingChibiDataUri,
-            size: "70px auto",
-            position: "bottom right",
-            repeat: "no-repeat",
-          },
-        ],
+        chat: { overlay: "rgba(32, 18, 26, 0.65)" },
+        sidebar: { overlay: "rgba(41, 24, 35, 0.82)" },
+        home: { overlay: "rgba(32, 18, 26, 0.65)" },
+        call: { overlay: "rgba(32, 18, 26, 0.60)" },
+        page: { overlay: "rgba(32, 18, 26, 0.85)" },
       },
     },
   }

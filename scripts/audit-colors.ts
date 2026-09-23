@@ -197,7 +197,7 @@ type OverrideMethodId =
   | "targeted-rule"
   | "full-value-replacement"
 
-interface Occurrence {
+export interface Occurrence {
   readonly id: number
   readonly line: number
   readonly column: number
@@ -292,7 +292,7 @@ const ALL_OVERRIDES: readonly OverrideMethodId[] = [
 // CSS scanning — a minimal single-pass parser, no dependencies
 // ---------------------------------------------------------------------------
 
-interface ScanResult {
+export interface ScanResult {
   readonly occurrences: Occurrence[]
   /** ;-terminated chunks that were not `property: value` declarations (e.g. @import). */
   readonly skippedFragments: number

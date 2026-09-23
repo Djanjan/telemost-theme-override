@@ -22,9 +22,8 @@
  */
 
 import { describe, expect, test } from "bun:test"
-import { STYLE_ELEMENT_ID, verify } from "./inject"
-import type { CdpSession } from "./cdp/client"
-import { mappingConfigSchema, type MappingConfig, type VerificationReport } from "./schema"
+import { STYLE_ELEMENT_ID, verify, type CdpEvaluator } from "./inject"
+import { mappingConfigSchema, type MappingConfig } from "./schema"
 
 /* ------------------------------------------------------------------ *
  * Fixtures — a CdpSession double that runs the in-page expression locally
@@ -45,10 +44,10 @@ function mappingWith(canaryTokens: string[], semanticCanaries: string[]): Mappin
  */
 function fakeCdpSession(computedValues: Record<string, string>) {
   const queriedTokens: string[] = []
-  const evaluate = async (
+  const evaluate = async <T>(
     expression: string,
     schema: { safeParse(input: unknown): { success: boolean; data?: unknown; error?: unknown } },
-  ): Promise<VerificationReport> => {
+  ): Promise<T> => {
     const document = {
       documentElement: { className: "theme_dark theme_auto" },
       getElementById: (id: string) => (id === STYLE_ELEMENT_ID ? { id } : null),
@@ -63,9 +62,9 @@ function fakeCdpSession(computedValues: Record<string, string>) {
     const run = new Function("document", "getComputedStyle", `return (${expression});`)
     const parsed = schema.safeParse(run(document, getComputedStyle))
     if (!parsed.success) throw new Error("in-page report failed the verificationReportSchema validation")
-    return parsed.data as VerificationReport
+    return parsed.data as T
   }
-  return { session: { evaluate } as unknown as CdpSession, queriedTokens }
+  return { session: { evaluate } satisfies CdpEvaluator, queriedTokens }
 }
 
 /* ------------------------------------------------------------------ *

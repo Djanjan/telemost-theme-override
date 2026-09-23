@@ -1,6 +1,13 @@
 import { readFile } from "node:fs/promises"
 import { extname, isAbsolute, resolve } from "node:path"
-import type { BackgroundItem, BackgroundProperties, BackgroundsConfig, CustomBackgroundRule, DesktopTheme } from "../schema"
+import {
+  isValidGradientValue,
+  type BackgroundItem,
+  type BackgroundProperties,
+  type BackgroundsConfig,
+  type CustomBackgroundRule,
+  type DesktopTheme,
+} from "../schema"
 
 /**
  * Surface selectors for Telemost UI containers where background images can be applied.
@@ -9,7 +16,7 @@ export const BACKGROUND_SURFACE_SELECTORS: Readonly<
   Record<string, { readonly light: readonly string[]; readonly dark: readonly string[]; readonly auto: readonly string[] }>
 > = {
   page: {
-    light: [":root body", ":root.browser.desktop", ":root #root", ":root .yamb-root", ":root .yamb-main-layout"],
+    light: [":root body", ":root.browser.desktop", ":root #root", ":root .yamb-root"],
     dark: [
       ".theme_dark:root body",
       ".theme_dark:root",
@@ -20,7 +27,7 @@ export const BACKGROUND_SURFACE_SELECTORS: Readonly<
     auto: [":root.theme_auto body", ":root.theme_auto .yamb-root"],
   },
   chat: {
-    light: [":root .yamb-conversation", ":root .yamb-conversation_transparent", ":root .yamb-chat-body"],
+    light: [":root .yamb-conversation", ":root .yamb-conversation_transparent"],
     dark: [
       ".theme_dark:root .yamb-conversation",
       ":root.theme_dark .yamb-conversation",
@@ -60,7 +67,7 @@ export const BACKGROUND_SURFACE_SELECTORS: Readonly<
     auto: [":root.theme_auto .yamb-telemost-login-page"],
   },
   call: {
-    light: [":root .yamb-video-viewer", ":root .yamb-windowed-meeting", ":root .yamb-call-screen"],
+    light: [":root .yamb-video-viewer", ":root .yamb-windowed-meeting"],
     dark: [
       ".theme_dark:root .yamb-video-viewer",
       ":root.theme_dark .yamb-video-viewer",
@@ -82,9 +89,9 @@ export const BACKGROUND_SURFACE_SELECTORS: Readonly<
     auto: [":root.theme_auto .ui-card", ":root.theme_auto .ui-popup", ":root.theme_auto .yamb-modal"],
   },
   settings: {
-    light: [":root .yamb-settings-page", ":root .yamb-settings"],
-    dark: [".theme_dark:root .yamb-settings-page", ":root.theme_dark .yamb-settings-page"],
-    auto: [":root.theme_auto .yamb-settings-page"],
+    light: [":root .yamb-settings"],
+    dark: [".theme_dark:root .yamb-settings", ":root.theme_dark .yamb-settings"],
+    auto: [":root.theme_auto .yamb-settings"],
   },
 }
 
@@ -183,36 +190,32 @@ export function detectImageMimeType(buffer: Buffer): string | undefined {
   return undefined
 }
 
+const DATA_URI_IMAGE_REGEX = /^data:image\/(?:png|jpeg|jpg|webp|gif|avif|svg\+xml);base64,[A-Za-z0-9+/=]+$/
+
 function formatUrl(image: string): string {
   const trimmed = image.trim()
-  if (
-    trimmed.startsWith("linear-gradient(") ||
-    trimmed.startsWith("radial-gradient(") ||
-    trimmed.startsWith("conic-gradient(") ||
-    trimmed.startsWith("var(")
-  ) {
+  if (isValidGradientValue(trimmed)) {
     return trimmed
   }
-  if (trimmed.startsWith("url(") && trimmed.endsWith(")")) {
-    return trimmed
+  if (DATA_URI_IMAGE_REGEX.test(trimmed)) {
+    const escaped = trimmed.replace(/\\/g, "\\\\").replace(/"/g, '\\"')
+    return `url("${escaped}")`
   }
-  // Escape backslashes and double-quotes for defense in depth
-  const escaped = trimmed.replace(/\\/g, "\\\\").replace(/"/g, '\\"')
-  return `url("${escaped}")`
+  throw new Error(
+    `assertion failed: background image must be resolved to a base64 Data URI or a valid CSS gradient before CSS generation, got "${trimmed}"`,
+  )
 }
 
 export function renderBackgroundDeclarations(props: BackgroundProperties): Array<readonly [string, string]> {
+  if (!props.image) return []
   const decls: Array<readonly [string, string]> = []
 
   let imageVal: string
+  const trimmedImage = props.image.trim()
   if (props.overlay) {
     const overlayGradient = `linear-gradient(${props.overlay}, ${props.overlay})`
-    if (
-      props.image.startsWith("linear-gradient(") ||
-      props.image.startsWith("radial-gradient(") ||
-      props.image.startsWith("conic-gradient(")
-    ) {
-      imageVal = `${overlayGradient}, ${props.image}`
+    if (isValidGradientValue(trimmedImage)) {
+      imageVal = `${overlayGradient}, ${trimmedImage}`
     } else {
       imageVal = `${overlayGradient}, ${formatUrl(props.image)}`
     }
@@ -276,7 +279,10 @@ export async function resolveBackgroundImage(image: string, baseDir: string): Pr
     const buffer = await readFile(filePath)
     const detected = detectImageMimeType(buffer)
     const ext = extname(filePath).toLowerCase()
-    const mime = detected ?? MIME_MAP[ext] ?? "image/png"
+    const mime = detected ?? MIME_MAP[ext]
+    if (!mime) {
+      throw new Error(`unrecognized image format for file "${filePath}"`)
+    }
     return `data:${mime};base64,${buffer.toString("base64")}`
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error)
@@ -304,8 +310,12 @@ export async function resolveThemeBackgrounds(theme: DesktopTheme, baseDir: stri
         resolved[key] = customRules
       } else {
         const item = normalizeBackgroundItem(val as BackgroundItem)
-        const resolvedImg = await resolveBackgroundImage(item.image, baseDir)
-        resolved[key] = { ...item, image: resolvedImg }
+        if (item.image) {
+          const resolvedImg = await resolveBackgroundImage(item.image, baseDir)
+          resolved[key] = { ...item, image: resolvedImg }
+        } else {
+          resolved[key] = { ...item }
+        }
       }
     }
 
@@ -368,7 +378,16 @@ export function buildBackgroundSections(theme: DesktopTheme): BackgroundSections
       return undefined
     }
 
-    return findItem(variantConfig) ?? findItem(rootConfig)
+    const rootItem = findItem(rootConfig)
+    const variantItem = findItem(variantConfig)
+    if (!rootItem && !variantItem) return undefined
+
+    const merged: BackgroundProperties = {
+      ...rootItem,
+      ...variantItem,
+    }
+    if (!merged.image) return undefined
+    return merged
   }
 
   // Canonical surface order

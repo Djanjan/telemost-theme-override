@@ -15,6 +15,7 @@ import { DEFAULT_MAPPING } from "./defaults/mapping"
 import { appConfigFilePath, configDir, presetsDir, themeFilePath } from "./paths"
 import { savePreset } from "./presets"
 import { desktopThemeSchema, type DesktopTheme } from "./schema"
+import { buildCss } from "./theme/generate"
 
 /* ------------------------------------------------------------------ *
  * Fixtures & Helpers
@@ -363,6 +364,44 @@ describe("bootstrap() theme and preset resolution", () => {
     await expect(bootstrap(env, { preset: "ghost-preset-not-found" })).rejects.toThrow(
       /Preset "ghost-preset-not-found" not found/,
     )
+  })
+
+  test("end-to-end: resolves local background images from theme.json to data URIs in buildCss", async () => {
+    const confDir = configDir(env)
+    const bgPng = Buffer.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
+      0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+      0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4, 0x89,
+    ])
+    await writeFile(join(confDir, "bg.png"), bgPng)
+
+    const themed = {
+      ...DEFAULT_THEME,
+      backgrounds: {
+        chat: "bg.png",
+      },
+    }
+    await writeFile(themeFilePath(env), JSON.stringify(themed, null, 2), "utf8")
+
+    const result = await bootstrap(env)
+    expect(result.theme.backgrounds?.chat).toBeDefined()
+
+    const css = buildCss({ theme: result.theme, mapping: result.mapping })
+    expect(css).toContain("data:image/png;base64,")
+    expect(css).not.toContain('url("bg.png")')
+  })
+
+  test("throws BootstrapError when local background image file in theme.json does not exist", async () => {
+    const themed = {
+      ...DEFAULT_THEME,
+      backgrounds: {
+        chat: "missing-bg.png",
+      },
+    }
+    await writeFile(themeFilePath(env), JSON.stringify(themed, null, 2), "utf8")
+
+    await expect(bootstrap(env)).rejects.toThrow(BootstrapError)
+    await expect(bootstrap(env)).rejects.toThrow(/cannot resolve background images for theme/)
   })
 })
 

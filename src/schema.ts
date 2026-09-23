@@ -354,37 +354,107 @@ export type SemanticSlots = z.infer<typeof semanticSlotsSchema>
  * ------------------------------------------------------------------ */
 
 const DATA_URI_IMAGE_REGEX = /^data:image\/(?:png|jpeg|jpg|webp|gif|avif|svg\+xml);base64,[A-Za-z0-9+/=]+$/
-const GRADIENT_PREFIX_REGEX = /^(?:linear|radial|conic)-gradient\(/i
+const GRADIENT_START_REGEX = /^(?:repeating-)?(?:linear|radial|conic)-gradient\(/i
+const ALLOWED_GRADIENT_FUNCTIONS = new Set([
+  "linear-gradient",
+  "radial-gradient",
+  "conic-gradient",
+  "repeating-linear-gradient",
+  "repeating-radial-gradient",
+  "repeating-conic-gradient",
+  "rgb",
+  "rgba",
+  "hsl",
+  "hsla",
+  "oklch",
+  "oklab",
+  "color-mix",
+  "calc",
+  "var",
+])
+
+export function isValidGradientValue(value: string): boolean {
+  const trimmed = value.trim()
+  if (!GRADIENT_START_REGEX.test(trimmed) || !trimmed.endsWith(")")) {
+    return false
+  }
+  if (/[;{}@"'\!\\@]/.test(trimmed) || /\/\*|\*\//.test(trimmed) || /[\r\n]/.test(trimmed)) {
+    return false
+  }
+  let depth = 0
+  for (let i = 0; i < trimmed.length; i++) {
+    const ch = trimmed[i]
+    if (ch === "(") depth++
+    else if (ch === ")") {
+      depth--
+      if (depth < 0) return false
+      if (depth === 0 && i < trimmed.length - 1) {
+        return false
+      }
+    }
+  }
+  if (depth !== 0) return false
+
+  const funcMatches = trimmed.matchAll(/([a-zA-Z0-9_-]+)\s*\(/g)
+  for (const match of funcMatches) {
+    const funcName = match[1].toLowerCase()
+    if (!ALLOWED_GRADIENT_FUNCTIONS.has(funcName)) {
+      return false
+    }
+  }
+
+  return true
+}
+
+const BANNED_CSS_IMAGE_FUNCTIONS_REGEX =
+  /\b(?:url|image|image-set|-webkit-image-set|cross-fade|element|canvas)\s*\(/i
+
+export function isValidLocalImagePath(value: string): boolean {
+  const trimmed = value.trim()
+  if (trimmed.length === 0) return false
+
+  // If it starts like a gradient, it must be validated as a gradient, not a file path
+  if (GRADIENT_START_REGEX.test(trimmed)) {
+    return false
+  }
+
+  // Forbid CSS image functions
+  if (BANNED_CSS_IMAGE_FUNCTIONS_REGEX.test(trimmed)) {
+    return false
+  }
+
+  if (/[;{}@"'\!*]/.test(trimmed) || /\/\*|\*\//.test(trimmed) || /[\r\n]/.test(trimmed)) {
+    return false
+  }
+
+  // UNC network paths (//host or \\host) are forbidden to prevent SMB/network leaks
+  if (/^[/\\]{2}/.test(trimmed)) {
+    return false
+  }
+
+  // Any URI scheme (http:, https:, file:, ftp:, etc.) is forbidden except Windows drive letters (C:\ or c:/)
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/i.test(trimmed)) {
+    if (!/^[a-zA-Z]:[/\\]/.test(trimmed)) {
+      return false
+    }
+  }
+
+  return true
+}
 
 export const backgroundImageValueSchema = z
   .string()
   .min(1)
   .max(50_000_000)
   .refine(
-    (v) => !/\/\*|\*\//.test(v),
-    "image must not contain CSS comments (/* or */)",
-  )
-  .refine(
-    (v) => !/^https?:\/\//i.test(v.trim()),
-    "remote http(s) URLs are forbidden for security and privacy; use local files or data URIs",
-  )
-  .refine(
     (v) => {
       const trimmed = v.trim()
       if (DATA_URI_IMAGE_REGEX.test(trimmed)) return true
-      if (GRADIENT_PREFIX_REGEX.test(trimmed)) {
-        return (
-          !/[;{}@"'\\]/.test(trimmed) &&
-          !/url\(/i.test(trimmed) &&
-          balancedParens(trimmed)
-        )
-      }
-      return (
-        !/[;{}@"'\!\\()[\]\s\r\n]/.test(trimmed) &&
-        !/url\(/i.test(trimmed)
-      )
+      if (isValidGradientValue(trimmed)) return true
+      if (isValidLocalImagePath(trimmed)) return true
+      return false
     },
-    "image must be a valid base64 data URI (data:image/...), a CSS gradient without url(), or a safe local file path",
+    "image must be a valid base64 data URI (data:image/...), a single safe CSS gradient without url(), or a safe local file path",
   )
 
 export const customBackgroundSelectorSchema = z
@@ -405,7 +475,7 @@ export const customBackgroundSelectorSchema = z
   )
 
 export const backgroundPropertiesSchema = strictKeyed({
-  image: backgroundImageValueSchema,
+  image: backgroundImageValueSchema.optional(),
   size: safeCssValueSchema.optional(),
   position: safeCssValueSchema.optional(),
   repeat: safeCssValueSchema.optional(),
@@ -413,7 +483,10 @@ export const backgroundPropertiesSchema = strictKeyed({
   overlay: safeCssValueSchema.optional(),
   blendMode: safeCssValueSchema.optional(),
   opacity: z.number().min(0).max(1).optional(),
-})
+}).refine(
+  (obj) => Object.keys(obj).length > 0,
+  "background properties object must not be empty",
+)
 
 export const backgroundItemSchema = z.union([
   backgroundImageValueSchema,

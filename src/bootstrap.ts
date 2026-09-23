@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { existsSync } from "node:fs"
+import { dirname } from "node:path"
 import { z } from "zod"
 
 import { appConfigFilePath, configDir, findTelemost, presetsDir, telemostCandidates, themeFilePath } from "./paths"
@@ -7,6 +8,7 @@ import { desktopThemeSchema, mappingConfigSchema, type MappingConfig } from "./s
 import { DEFAULT_THEME } from "./defaults/theme"
 import { DEFAULT_MAPPING } from "./defaults/mapping"
 import { resolvePreset, PresetError } from "./presets"
+import { resolveThemeBackgrounds } from "./theme/backgrounds"
 
 export type DesktopTheme = z.infer<typeof desktopThemeSchema>
 
@@ -146,6 +148,12 @@ export async function bootstrap(
     }
   } else {
     theme = await readValidated(themePath, desktopThemeSchema, "theme")
+    try {
+      theme = await resolveThemeBackgrounds(theme, dirname(themePath))
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error)
+      throw new BootstrapError(`cannot resolve background images for theme ${themePath}: ${reason}`)
+    }
   }
 
   // The token mapping is an implementation detail of how Orb is structured,

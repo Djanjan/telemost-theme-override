@@ -13,7 +13,7 @@
 
 import { parseArgs } from "node:util"
 
-import { bootstrap, BootstrapError, type ConsoleMode, type UserConfig } from "./bootstrap"
+import { bootstrap, BootstrapError, userConfigSchema, type ConsoleMode, type UserConfig } from "./bootstrap"
 import { hideConsoleWindow, inspectConsole } from "./console-window"
 import { appConfigSchema } from "./schema"
 import { buildCss } from "./theme/generate"
@@ -222,23 +222,29 @@ async function run(once: boolean, preset?: string): Promise<void> {
   }
 }
 
-async function main(): Promise<void> {
-  const { values } = parseArgs({
-    args: process.argv.slice(2),
-    options: {
-      once: { type: "boolean", default: false },
-      where: { type: "boolean", default: false },
-      help: { type: "boolean", default: false },
-      preset: { type: "string" },
-      "list-presets": { type: "boolean", default: false },
-      presets: { type: "boolean", default: false },
-      "save-preset": { type: "string" },
-      "import-preset": { type: "string" },
-      "export-preset": { type: "string" },
-      "set-preset": { type: "string" },
-      out: { type: "string" },
-    },
+export const START_CLI_OPTIONS = {
+  once: { type: "boolean", default: false },
+  where: { type: "boolean", default: false },
+  help: { type: "boolean", default: false },
+  preset: { type: "string" },
+  "list-presets": { type: "boolean", default: false },
+  presets: { type: "boolean", default: false },
+  "save-preset": { type: "string" },
+  "import-preset": { type: "string" },
+  "export-preset": { type: "string" },
+  "set-preset": { type: "string" },
+  out: { type: "string" },
+} as const
+
+export function parseStartArgs(args: string[]) {
+  return parseArgs({
+    args,
+    options: START_CLI_OPTIONS,
   })
+}
+
+async function main(): Promise<void> {
+  const { values } = parseStartArgs(process.argv.slice(2))
 
   if (values.help) {
     process.stdout.write(HELP)
@@ -246,21 +252,28 @@ async function main(): Promise<void> {
   }
 
   if (values["list-presets"] || values.presets) {
-    const presets = await listPresets()
+    const listResult = await listPresets()
     let active: string | undefined
-    try {
-      const configPath = appConfigFilePath()
-      if (existsSync(configPath)) {
+    const configPath = appConfigFilePath()
+    if (existsSync(configPath)) {
+      try {
         const raw = await readFile(configPath, "utf8")
-        const parsed = JSON.parse(raw) as { preset?: unknown }
-        if (typeof parsed?.preset === "string" && parsed.preset.trim()) {
-          active = parsed.preset.trim()
+        const parsedJson = JSON.parse(raw)
+        const parsed = userConfigSchema.safeParse(parsedJson)
+        if (parsed.success) {
+          if (parsed.data.preset) {
+            active = parsed.data.preset.trim()
+          }
+        } else {
+          console.warn(`warning: invalid config at ${configPath}:\n  ${parsed.error.message}`)
         }
+      } catch (err) {
+        console.warn(
+          `warning: cannot read config file at ${configPath}: ${err instanceof Error ? err.message : String(err)}`,
+        )
       }
-    } catch {
-      // ignore config read errors in preset listing
     }
-    console.log(formatPresetList(presets, active))
+    console.log(formatPresetList(listResult, active))
     return
   }
 
@@ -314,11 +327,13 @@ async function main(): Promise<void> {
   await run(values.once, typeof values.preset === "string" ? values.preset : undefined)
 }
 
-main().catch((error: unknown) => {
-  if (error instanceof BootstrapError || error instanceof PresetError) {
-    process.stderr.write(`\n${error.message}\n`)
-  } else {
-    process.stderr.write(`\nerror: ${error instanceof Error ? error.message : String(error)}\n`)
-  }
-  process.exitCode = 1
-})
+if (import.meta.main) {
+  main().catch((error: unknown) => {
+    if (error instanceof BootstrapError || error instanceof PresetError) {
+      process.stderr.write(`\n${error.message}\n`)
+    } else {
+      process.stderr.write(`\nerror: ${error instanceof Error ? error.message : String(error)}\n`)
+    }
+    process.exitCode = 1
+  })
+}

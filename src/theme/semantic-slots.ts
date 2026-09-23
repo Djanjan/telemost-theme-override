@@ -28,6 +28,8 @@
  *   `TAR` targeted-rule (rule bindings only)
  */
 
+import type { SemanticCategory, SemanticSlots } from "../schema"
+
 export type SemanticSlotKind = "color" | "shadow" | "gradient"
 
 /** Plan §5 legend: R root; RB root+brand; RC root+component; RBC union; MN merge-notice; REF reference-only. */
@@ -55,7 +57,7 @@ export interface SemanticSlotEntry {
   /** Slot id — `category.key` (plan §3 `slotIdSchema`). */
   readonly id: string
   /** theme.json nesting: `semantic.<category>.<key>` */
-  readonly category: string
+  readonly category: SemanticCategory
   readonly key: string
   readonly kind: SemanticSlotKind
   /** Registry-owned default token target (plan §5, ADR-2b: not config-reachable). */
@@ -536,8 +538,6 @@ export function semanticRuleId(slotId: string, mode: RuleMode): string {
   return `semantic.${slotId}.${mode}`
 }
 
-import type { SemanticSlots } from "../schema"
-
 export interface ResolvedSemanticTarget {
   readonly slot: SemanticSlotEntry
   /** Emission scope selector lists per mode, exactly as declared in plan §9. */
@@ -557,6 +557,7 @@ export function getSemanticSlotValue(
   entry: Pick<SemanticSlotEntry, "category" | "key">,
 ): string | undefined {
   if (!semantic) return undefined
-  const cat = (semantic as Record<string, Record<string, string | undefined> | undefined>)[entry.category]
-  return cat?.[entry.key]
+  const cat = semantic[entry.category]
+  if (!cat) return undefined
+  return (cat as Record<string, string | undefined>)[entry.key]
 }

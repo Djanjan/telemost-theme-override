@@ -43,7 +43,8 @@ import { describe, expect, test } from "bun:test"
 import { createHash } from "node:crypto"
 import { existsSync, readFileSync, statSync } from "node:fs"
 import { join } from "node:path"
-import { ASSET_RELATIVE, parseStylesheet } from "../../scripts/audit-colors"
+import { ASSET_RELATIVE, parseStylesheet, type Occurrence } from "../../scripts/audit-colors"
+import { semanticSlotsSchema } from "../schema"
 import {
   SEMANTIC_AUTO_SCOPES,
   SEMANTIC_SCOPE_BLOCKS,
@@ -62,18 +63,13 @@ import { SEMANTIC_SLOT_SPECS } from "./semantic-slots.testdata"
 const PROJECT_ROOT = join(import.meta.dir, "..", "..")
 const ASSET_PATH = join(PROJECT_ROOT, ASSET_RELATIVE)
 
-interface InventoryOccurrence {
-  selector: string
-  property: string
-  kind: string
-  override: string
-}
+type InventoryOccurrence = Pick<Occurrence, "selector" | "property" | "kind" | "override">
 
 interface ColorInventory {
   schema: string
   asset: { path: string; sha256: string; bytes: number; lines: number }
   summary: { totalOccurrences: number }
-  occurrences: InventoryOccurrence[]
+  occurrences: readonly InventoryOccurrence[]
 }
 
 const pinnedCss = readFileSync(ASSET_PATH, "utf8")
@@ -91,7 +87,7 @@ function loadInventory(): ColorInventory {
     schema: "telemost-ui-color-inventory/1",
     asset: { path: ASSET_RELATIVE, sha256, bytes, lines },
     summary: { totalOccurrences: scan.occurrences.length },
-    occurrences: scan.occurrences as unknown as InventoryOccurrence[],
+    occurrences: scan.occurrences,
   }
 }
 
@@ -173,6 +169,26 @@ function componentScopeGroups(token: string): number {
  * ------------------------------------------------------------------ */
 
 describe("T-INV-01: registry evidence holds for all 124 entries", () => {
+  test("every registry slot matches an exact slot key in semanticSlotsSchema", () => {
+    for (const entry of SEMANTIC_SLOT_REGISTRY.values()) {
+      const dummyValue =
+        entry.kind === "shadow"
+          ? "0 2px 4px rgba(0,0,0,0.5)"
+          : entry.kind === "gradient"
+            ? "linear-gradient(to right, red, blue)"
+            : "#112233"
+      const testObj = {
+        [entry.category]: {
+          [entry.key]: dummyValue,
+        },
+      }
+      const parsed = semanticSlotsSchema.safeParse(testObj)
+      expect(
+        parsed.success,
+        `registry slot ${entry.id} (${entry.category}.${entry.key}) must be accepted by semanticSlotsSchema`,
+      ).toBe(true)
+    }
+  })
   const entries = [...SEMANTIC_SLOT_REGISTRY.values()]
 
   test("the production registry is field-faithful to the plan transcript (§5)", () => {

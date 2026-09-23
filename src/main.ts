@@ -192,7 +192,31 @@ async function commandApply(overrides: ReturnType<typeof readOverrides>, once: b
   }
 }
 
-function readOverrides(values: Record<string, string | boolean | undefined>): {
+export const MAIN_CLI_OPTIONS = {
+  theme: { type: "string" },
+  preset: { type: "string" },
+  mapping: { type: "string" },
+  port: { type: "string" },
+  exe: { type: "string" },
+  out: { type: "string" },
+  "list-presets": { type: "boolean", default: false },
+  presets: { type: "boolean", default: false },
+  "save-preset": { type: "string" },
+  "import-preset": { type: "string" },
+  "export-preset": { type: "string" },
+  once: { type: "boolean", default: false },
+  help: { type: "boolean", default: false },
+} as const
+
+export function parseMainArgs(args: string[]) {
+  return parseArgs({
+    args,
+    allowPositionals: true,
+    options: MAIN_CLI_OPTIONS,
+  })
+}
+
+export function readOverrides(values: Record<string, string | boolean | undefined>): {
   theme?: string
   preset?: string
   mapping?: string
@@ -214,25 +238,7 @@ function readOverrides(values: Record<string, string | boolean | undefined>): {
 }
 
 async function main(): Promise<void> {
-  const { values, positionals } = parseArgs({
-    args: process.argv.slice(2),
-    allowPositionals: true,
-    options: {
-      theme: { type: "string" },
-      preset: { type: "string" },
-      mapping: { type: "string" },
-      port: { type: "string" },
-      exe: { type: "string" },
-      out: { type: "string" },
-      "list-presets": { type: "boolean", default: false },
-      presets: { type: "boolean", default: false },
-      "save-preset": { type: "string" },
-      "import-preset": { type: "string" },
-      "export-preset": { type: "string" },
-      once: { type: "boolean", default: false },
-      help: { type: "boolean", default: false },
-    },
-  })
+  const { values, positionals } = parseMainArgs(process.argv.slice(2))
 
   if (values.help) {
     process.stdout.write(HELP)
@@ -294,12 +300,14 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((error: unknown) => {
-  if (error instanceof ConfigError || error instanceof PresetError) {
-    process.stderr.write(`\nerror: ${error.message}\n`)
-  } else {
-    const message = error instanceof Error ? error.message : String(error)
-    process.stderr.write(`\nerror: ${message}\n`)
-  }
-  process.exitCode = 1
-})
+if (import.meta.main) {
+  main().catch((error: unknown) => {
+    if (error instanceof ConfigError || error instanceof PresetError) {
+      process.stderr.write(`\nerror: ${error.message}\n`)
+    } else {
+      const message = error instanceof Error ? error.message : String(error)
+      process.stderr.write(`\nerror: ${message}\n`)
+    }
+    process.exitCode = 1
+  })
+}

@@ -61,8 +61,6 @@ function assertNoModeNestingInSemantic(theme: DesktopTheme, source: string): voi
   }
 }
 
-// Using getSemanticSlotValue from ./theme/semantic-slots
-
 /**
  * Cross-validates rule-only semantic bindings against the registry and the
  * theme (plan §4, §10, §11). Every failure is a ConfigError naming the slot id.

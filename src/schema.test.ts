@@ -103,37 +103,7 @@ const CONFIG_MAPPING = JSON.parse(readFileSync(join(PROJECT_ROOT, "config/mappin
  * (plan §15, tto-6ia.2 symbol table). Typed `unknown`: they must not exist
  * yet, and `needExport` turns their absence into a descriptive RED failure.
  */
-interface SemanticSchemaExports {
-  cssCustomPropertyNameSchema: unknown
-  cssPropertyNameSchema: unknown
-  safeCssValueSchema: unknown
-  balancedParens: unknown
-  semanticColorValueSchema: unknown
-  shadowValueSchema: unknown
-  gradientValueSchema: unknown
-  slotIdSchema: unknown
-  pageSemanticSlotsSchema: unknown
-  surfaceSemanticSlotsSchema: unknown
-  elevationSemanticSlotsSchema: unknown
-  modalSemanticSlotsSchema: unknown
-  overlaySemanticSlotsSchema: unknown
-  lineSemanticSlotsSchema: unknown
-  focusSemanticSlotsSchema: unknown
-  textSemanticSlotsSchema: unknown
-  iconSemanticSlotsSchema: unknown
-  controlSemanticSlotsSchema: unknown
-  stateSemanticSlotsSchema: unknown
-  selectionSemanticSlotsSchema: unknown
-  statusSemanticSlotsSchema: unknown
-  shadowSemanticSlotsSchema: unknown
-  gradientSemanticSlotsSchema: unknown
-  semanticSlotsSchema: unknown
-  semanticBindingRuleSchema: unknown
-  semanticBindingSchema: unknown
-  SEMANTIC_CATEGORIES: unknown
-}
-
-const future = schemaNs as unknown as SemanticSchemaExports
+const future = schemaNs
 
 /** Minimal shape every zod schema satisfies; the default type for future exports. */
 interface ParseableSchema {
@@ -188,9 +158,6 @@ let mappingFileCounter = 0
  * this cast keeps call sites honest about the target signature while the
  * second argument stays inert until the implementation lands.
  */
-const loadMappingWithTheme = loadMapping as unknown as
-  (path: string, theme?: unknown) => Promise<Record<string, unknown>>
-
 /** Writes `body` to a temp file and loads it through the real loader. */
 async function loadMappingFrom(body: unknown, theme?: unknown): Promise<Record<string, unknown>> {
   const dir = join(tmpdir(), `tto-6ia-3-schema-tests-${process.pid}`)
@@ -198,7 +165,7 @@ async function loadMappingFrom(body: unknown, theme?: unknown): Promise<Record<s
   const path = join(dir, `mapping-${mappingFileCounter++}.json`)
   await writeFile(path, JSON.stringify(body))
   try {
-    return await (theme === undefined ? loadMappingWithTheme(path) : loadMappingWithTheme(path, theme))
+    return await loadMapping(path, theme)
   } finally {
     await rm(path, { force: true })
   }
@@ -712,6 +679,13 @@ describe("background image schema & injection defense", () => {
 
     const localPath = "assets/anime/chat-anime-girl.jpg"
     expect(schemaNs.backgroundImageValueSchema.safeParse(localPath).success).toBe(true)
+
+    // Windows paths with drive letter, backslashes, spaces, parens, and cyrillic
+    expect(schemaNs.backgroundImageValueSchema.safeParse("C:\\Users\\me\\Pictures\\wall.jpg").success).toBe(true)
+    expect(schemaNs.backgroundImageValueSchema.safeParse("C:/Users/me/Pictures/wall.jpg").success).toBe(true)
+    expect(schemaNs.backgroundImageValueSchema.safeParse("./wallpapers/my wall.jpg").success).toBe(true)
+    expect(schemaNs.backgroundImageValueSchema.safeParse("wallpaper (1).jpg").success).toBe(true)
+    expect(schemaNs.backgroundImageValueSchema.safeParse("обои/чат.jpg").success).toBe(true)
   })
 
   test("rejects CSS injection payloads in image field", () => {
@@ -726,6 +700,22 @@ describe("background image schema & injection defense", () => {
 
     const remoteUrl = "https://example.com/remote-wallpaper.png"
     expect(schemaNs.backgroundImageValueSchema.safeParse(remoteUrl).success).toBe(false)
+
+    // Remote schemes and network/UNC paths
+    expect(schemaNs.backgroundImageValueSchema.safeParse("file://attacker.example/share/x.png").success).toBe(false)
+    expect(schemaNs.backgroundImageValueSchema.safeParse("//attacker.example/y.png").success).toBe(false)
+    expect(schemaNs.backgroundImageValueSchema.safeParse("\\\\attacker.example\\share\\x.png").success).toBe(false)
+
+    // Malicious gradient tails (image-set, cross-fade, etc.)
+    expect(
+      schemaNs.backgroundImageValueSchema.safeParse("linear-gradient(red, red), image-set(attacker.png 1x)").success,
+    ).toBe(false)
+    expect(
+      schemaNs.backgroundImageValueSchema.safeParse("linear-gradient(red, red), url(https://evil.com/x.png)").success,
+    ).toBe(false)
+    expect(
+      schemaNs.backgroundImageValueSchema.safeParse("linear-gradient(cross-fade(x, y))").success,
+    ).toBe(false)
   })
 
   test("rejects CSS keylogger and malicious custom selectors", () => {
