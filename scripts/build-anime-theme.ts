@@ -6,8 +6,9 @@ import { readFile } from "node:fs/promises"
 
 async function fileToPngDataUri(filePath: string): Promise<string> {
   const buffer = await readFile(resolve(process.cwd(), filePath))
+  const mime = buffer[0] === 0x89 && buffer[1] === 0x50 ? "image/png" : "image/jpeg"
   const base64 = buffer.toString("base64")
-  return `data:image/png;base64,${base64}`
+  return `data:${mime};base64,${base64}`
 }
 
 /**
